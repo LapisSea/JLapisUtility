@@ -43,39 +43,53 @@ public class UtilL{
 		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object,String>)funct);
 	}
 	
+	public static String toStringArray(Object[] arr){
+		if(arr==null) return "null";
+		StringBuilder print=new StringBuilder("[");
+		
+		for(int i=0;i<arr.length;i++){
+			Object a=arr[i];
+			if(isArray(a)) print.append(unknownArrayToString(a));
+			else if(a instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)a));
+			else print.append(toString(a));
+			if(i!=arr.length-1) print.append(", ");
+		}
+		
+		return print.append("]").toString();
+	}
+	
 	public static String toString(Object...objs){
+		if(objs==null) return "null";
 		StringBuilder print=new StringBuilder();
 		
-		if(objs!=null) for(int i=0;i<objs.length;i++){
+		for(int i=0;i<objs.length;i++){
 			Object a=objs[i];
 			if(isArray(a)) print.append(unknownArrayToString(a));
 			else if(a instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)a));
-			else print.append(toString(a)+(i==objs.length-1?"":" "));
+			else print.append(toString(a));
+			if(i!=objs.length-1) print.append(" ");
 		}
-		else print.append("null");
 		
 		return print.toString();
 	}
 	
 	public static String toString(Object obj){
+		if(obj==null) return "null";
 		
 		StringBuilder print=new StringBuilder();
 		
-		if(obj!=null){
-			if(isArray(obj)) print.append(unknownArrayToString(obj));
-			else if(obj instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)obj));
+		if(isArray(obj)) print.append(unknownArrayToString(obj));
+		else if(obj instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)obj));
+		else{
+			Class<?> type=obj.getClass();
+			Function<Object,String> fun=CUSTOM_TO_STRINGS.get(type);
+			if(fun!=null) print.append(fun.apply(obj));
 			else{
-				Class<?> type=obj.getClass();
-				Function<Object,String> fun=CUSTOM_TO_STRINGS.get(type);
-				if(fun!=null) print.append(fun.apply(obj));
-				else{
-					Entry<Class<Object>,Function<Object,String>> ent=CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(e.getKey(), type)).findFirst().orElse(null);
-					if(ent!=null) print.append(ent.getValue().apply(obj));
-					else print.append(obj.toString());
-				}
+				Entry<Class<Object>,Function<Object,String>> ent=CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(e.getKey(), type)).findFirst().orElse(null);
+				if(ent!=null) print.append(ent.getValue().apply(obj));
+				else print.append(obj.toString());
 			}
 		}
-		else print.append("null");
 		
 		return print.toString();
 	}
@@ -85,6 +99,8 @@ public class UtilL{
 	}
 	
 	public static String floatBufferToString(FloatBuffer buff){
+		if(buff==null) return "null";
+		
 		StringBuilder print=new StringBuilder("Buffer{");
 		
 		buff=buff.duplicate();
@@ -100,6 +116,7 @@ public class UtilL{
 	}
 	
 	private static String unknownArrayToString(Object arr){
+		if(arr==null) return "null";
 		if(arr instanceof boolean[]) return Arrays.toString((boolean[])arr);
 		if(arr instanceof float[]) return Arrays.toString((float[])arr);
 		if(arr instanceof byte[]) return Arrays.toString((byte[])arr);
@@ -108,7 +125,7 @@ public class UtilL{
 		if(arr instanceof short[]) return Arrays.toString((short[])arr);
 		if(arr instanceof char[]) return Arrays.toString((char[])arr);
 		if(arr instanceof double[]) return Arrays.toString((double[])arr);
-		if(arr instanceof Object[]) return Arrays.toString((Object[])arr);
+		if(arr instanceof Object[]) return toStringArray((Object[])arr);
 		return "ERR: "+arr;
 	}
 	
@@ -269,7 +286,7 @@ public class UtilL{
 	
 	public static byte[] compress(byte[] data){
 		try{
-			if((data==null)||(data.length==0)) return null;
+			if(data==null||data.length==0) return null;
 			ByteArrayOutputStream obj=new ByteArrayOutputStream();
 			GZIPOutputStream gzip=new GZIPOutputStream(obj);
 			gzip.write(data);
@@ -292,8 +309,7 @@ public class UtilL{
 				while((line=bufferedReader.readLine())!=null){
 					outStr+=line;
 				}
-			}
-			else{
+			}else{
 				outStr=new String(compressed);
 			}
 			return outStr;
@@ -303,7 +319,7 @@ public class UtilL{
 	}
 	
 	public static boolean isCompressed(final byte[] compressed){
-		return (compressed[0]==(byte)(GZIPInputStream.GZIP_MAGIC))&&(compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC>>8));
+		return compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC>>8);
 	}
 	
 	public static Class<?> findClosestCommonSuper(Class<?> a, Class<?> b){
@@ -323,8 +339,7 @@ public class UtilL{
 		if(instanceOf(data, type)) consumer.accept((T)data);
 		else if(data instanceof Iterable){
 			((Iterable<?>)data).forEach(mat->consumer.accept((T)mat));
-		}
-		else if(data.getClass().isArray()){
+		}else if(data.getClass().isArray()){
 			Class<?> typeTx=data.getClass().getComponentType();
 			
 			if(instanceOf(typeTx, type)){
