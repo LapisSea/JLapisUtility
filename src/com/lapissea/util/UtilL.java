@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -371,4 +372,114 @@ public class UtilL{
 		return string==null||string.isEmpty();
 	}
 	
+	public static void runWhile(BooleanSupplier when, Runnable what){
+		while(when.getAsBoolean())
+			what.run();
+	}
+	
+	public static void runWhileThread(String threadName, BooleanSupplier when, Runnable what){
+		new Thread(()->runWhile(when, what), threadName).start();
+	}
+	
+	public static void fileLines(InputStream stream, Consumer<String> cons) throws IOException{
+		StringBuilder lineBuild=new StringBuilder();
+		int ch;
+		
+		while(true){
+			String line;
+			while(true){
+				ch=stream.read();
+				if(ch==-1){
+					line=lineBuild.toString();
+					lineBuild.setLength(0);
+					break;
+				}
+				if(ch=='\n'){
+					ch=stream.read();
+					line=lineBuild.toString();
+					lineBuild.setLength(0);
+					if(ch!='\r'&&ch!='\n') lineBuild.append((char)ch);
+					break;
+				}
+				lineBuild.append((char)ch);
+			}
+			cons.accept(line);
+			
+			if(ch==-1) return;
+		}
+	}
+	
+	public static class InputStreamSilent extends InputStream{
+		
+		public final InputStream parent;
+		
+		public InputStreamSilent(InputStream parent){
+			this.parent=parent;
+		}
+		
+		@Override
+		public void close(){
+			closeSilenty(parent);
+		}
+		
+		@Override
+		public int read() throws IOException{
+			return parent.read();
+		}
+		
+		@Override
+		public int read(byte b[]) throws IOException{
+			return parent.read(b);
+		}
+		
+		@Override
+		public int read(byte[] b, int off, int len) throws IOException{
+			return parent.read(b, off, len);
+		}
+		
+		@Override
+		public int available() throws IOException{
+			return parent.available();
+		}
+		
+		@Override
+		public long skip(long n) throws IOException{
+			return parent.skip(n);
+		}
+		
+		@Override
+		public boolean markSupported(){
+			return parent.markSupported();
+		}
+		
+		@Override
+		public synchronized void mark(int readlimit){
+			parent.mark(readlimit);
+		}
+		
+		@Override
+		public synchronized void reset() throws IOException{
+			parent.reset();
+		}
+		
+		@Override
+		public String toString(){
+			return parent.toString();
+		}
+	}
+	
+	public static InputStreamSilent silentClose(InputStream resource){
+		return new InputStreamSilent(resource);
+	}
+	
+	public static String before(String toSubstring, char marker){
+		int pos=toSubstring.lastIndexOf(marker);
+		if(pos==-1) return null;
+		return toSubstring.substring(0, pos);
+	}
+	public static String after(String toSubstring, char marker){
+		int pos=toSubstring.lastIndexOf(marker);
+		if(pos==-1) return null;
+		return toSubstring.substring(pos+1);
+	}
 }
