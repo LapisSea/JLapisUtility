@@ -7,11 +7,11 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.function.IntConsumer;
 
 public class LogUtil{
-	
 	
 	public static final class __{
 		
@@ -23,8 +23,6 @@ public class LogUtil{
 		protected static Runnable		EXTERNAL_CLEAR;
 		public static PrintStream		OUT			=System.out;
 		
-		
-		
 		public static void INJECT_DEBUG_PRINT(boolean active){
 			if(DEBUG_INIT) return;
 			DEBUG_INIT=true;
@@ -35,15 +33,11 @@ public class LogUtil{
 			System.setErr(new PrintStream(new DebugHeaderStream(System.err)));
 		}
 		
-		
 		private static final class DebugHeaderStream extends OutputStream{
 			
 			final OutputStream child;
 			
-			static boolean				LAST_CH_ENDL=true;
-			static DebugHeaderStream	LAST;
-			
-			//			static final Object LOCK=new Object();
+			static boolean LAST_CH_ENDL=true;
 			
 			public DebugHeaderStream(OutputStream child){
 				this.child=child;
@@ -51,12 +45,6 @@ public class LogUtil{
 			
 			@Override
 			public void write(int b) throws IOException{
-				//				synchronized(LOCK){
-				
-				if(LAST!=this){//prevent half of the line to be from other stream
-					if(!LAST_CH_ENDL) LAST.write('\n');//OI! END YO FUCKEN LINES
-					LAST=this;
-				}
 				
 				if(LAST_CH_ENDL){
 					LAST_CH_ENDL=false;
@@ -66,23 +54,35 @@ public class LogUtil{
 				if(b=='\n') LAST_CH_ENDL=true;
 				
 				child.write((char)b);
-				//				}
 			}
 			
 			private static void debugHeader(OutputStream stream){
 				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
-				int depth=12;
-				while(trace[depth].getClassName().equals(LogUtil.class.getName())){
-					depth++;
+//				for(StackTraceElement stackTraceElement:trace){
+//					OUT.println(stackTraceElement.getClassName());
+//				}
+				int depth=trace.length;
+				String name;
+				while(!(name=trace[--depth].getClassName())
+						.equals(PrintStream.class.getName())&&
+						!name.startsWith(LogUtil.class.getName())&&
+						!name.startsWith(ArrayList.class.getName())
+						){
+//					OUT.println(depth+" "+name);
 				}
-				while(trace[depth].getLineNumber()==-1){
-					depth++;
-				}
+				depth++;
 				
+//				OUT.println();
 				StackTraceElement stack=trace[depth];
 				String className=stack.getClassName();
 				try{
-					stream.write(("["+Thread.currentThread().getName()+"] ["+className.substring(className.lastIndexOf('.')+1)+":"+stack.getLineNumber()+"]: ").getBytes());
+					stream.write('[');
+					stream.write(Thread.currentThread().getName().getBytes());
+					stream.write("] [".getBytes());
+					stream.write(className.substring(className.lastIndexOf('.')+1).getBytes());
+					stream.write(':');
+					stream.write(Integer.toString(stack.getLineNumber()).getBytes());
+					stream.write("]: ".getBytes());
 				}catch(IOException e){
 					e.printStackTrace();
 				}
@@ -212,14 +212,14 @@ public class LogUtil{
 		
 		int length=0;
 		for(int i=0;i<data.length;i++){
-			String lin=(data[i]=data[i].replaceFirst("\\s+$", ""));
+			String lin=data[i]=data[i].replaceFirst("\\s+$", "");
 			length=Math.max(length, lin.length());
 		}
 		
 		if(data.length>1){
 			length+=4;
 			for(int i=0;i<data.length;i++){
-				String lin=(data[i]="| "+data[i]+" |");
+				String lin=data[i]="| "+data[i]+" |";
 				int diff=length-lin.length();
 				if(diff==0) continue;
 				
@@ -260,8 +260,7 @@ public class LogUtil{
 			DateFormat dateFormat=new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 			Calendar cal=Calendar.getInstance();
 			result.append("Invoke time: ").append(dateFormat.format(cal.getTime())).append("\n");
-		}
-		else result.append(msg).append("\n");
+		}else result.append(msg).append("\n");
 		
 		int length=0;
 		for(int i=2;i<a1.length;i++){

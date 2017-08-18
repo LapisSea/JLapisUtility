@@ -172,11 +172,21 @@ public class UtilL{
 				}, false);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public static <T> T[] array(List<T> list){
 		if(list.isEmpty()) return null;
 		
-		@SuppressWarnings("unchecked")
 		T[] a=(T[])UtilL.array(list.get(0).getClass(), list.size());
+		return list.toArray(a);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static <T> T[] array(List<T> list, T[] arr){
+		if(list.isEmpty()) return null;
+		
+		T[] a;
+		if(arr.length==list.size()) a=arr;
+		else a=(T[])UtilL.array(list.get(0).getClass(), list.size());
 		return list.toArray(a);
 	}
 	
@@ -188,7 +198,9 @@ public class UtilL{
 	
 	public static <T> void doAndClear(Collection<T> collection, Consumer<T> toDo){
 		if(collection.isEmpty()) return;
-		collection.stream().forEach(toDo);
+		for(T t:collection){
+			toDo.accept(t);
+		}
 		collection.clear();
 	}
 	
@@ -477,9 +489,16 @@ public class UtilL{
 		if(pos==-1) return null;
 		return toSubstring.substring(0, pos);
 	}
+	
 	public static String after(String toSubstring, char marker){
 		int pos=toSubstring.lastIndexOf(marker);
 		if(pos==-1) return null;
 		return toSubstring.substring(pos+1);
+	}
+	
+	@SuppressWarnings({"unchecked","unused"})
+	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
+		if(true) throw(T)t;
+		return (T)t;
 	}
 }
