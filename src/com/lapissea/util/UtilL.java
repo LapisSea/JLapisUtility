@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -393,32 +394,13 @@ public class UtilL{
 		new Thread(()->runWhile(when, what), threadName).start();
 	}
 	
-	public static void fileLines(InputStream stream, Consumer<String> cons) throws IOException{
-		StringBuilder lineBuild=new StringBuilder();
-		int ch;
+	public static void fileLines(InputStream stream, UnsafeConsumer<String,IOException> cons) throws IOException{
+		BufferedReader b=new BufferedReader(new InputStreamReader(stream, "ISO-8859-1"));
 		
-		while(true){
-			String line;
-			while(true){
-				ch=stream.read();
-				if(ch==-1){
-					line=lineBuild.toString();
-					lineBuild.setLength(0);
-					break;
-				}
-				if(ch=='\n'){
-					ch=stream.read();
-					line=lineBuild.toString();
-					lineBuild.setLength(0);
-					if(ch!='\r'&&ch!='\n') lineBuild.append((char)ch);
-					break;
-				}
-				lineBuild.append((char)ch);
-			}
+		for(String line;(line=b.readLine())!=null;){
 			cons.accept(line);
-			
-			if(ch==-1) return;
 		}
+		
 	}
 	
 	public static class InputStreamSilent extends InputStream{
@@ -500,5 +482,29 @@ public class UtilL{
 	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
 		if(true) throw(T)t;
 		return (T)t;
+	}
+	
+	public static <T> Stream<T> stream(Iterable<T> it){
+		return stream(it, false);
+	}
+	
+	public static <T> Stream<T> stream(Iterable<T> it, boolean parallel){
+		return StreamSupport.stream(it.spliterator(), false);
+	}
+	
+	public static <T> Stream<T> stream(Iterator<T> it){
+		return stream(it, false);
+	}
+	
+	public static <T> Stream<T> stream(Iterator<T> it, boolean parallel){
+		return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.NONNULL), parallel);
+	}
+	
+	public static <In,Out> Out[] convert(In[] in, Class<Out> outType, Function<In,Out> converter){
+		Out[] out=array(outType, in.length);
+		for(int i=0;i<in.length;i++){
+			out[i]=converter.apply(in[i]);
+		}
+		return out;
 	}
 }

@@ -66,8 +66,7 @@ public class LogUtil{
 				while(!(name=trace[--depth].getClassName())
 						.equals(PrintStream.class.getName())&&
 						!name.startsWith(LogUtil.class.getName())&&
-						!name.startsWith(ArrayList.class.getName())
-						){
+						!name.startsWith(ArrayList.class.getName())){
 //					OUT.println(depth+" "+name);
 				}
 				depth++;
@@ -142,6 +141,38 @@ public class LogUtil{
 	
 	public static void print(Object obj){
 		out(UtilL.toString(obj));
+	}
+	
+	public static void println(int obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(float obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(long obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(double obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(char obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(byte obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(boolean obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(short obj){
+		out(obj+"\n");
 	}
 	
 	public static void println(Object obj){
