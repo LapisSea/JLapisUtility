@@ -303,7 +303,7 @@ public class LogUtil{
 		for(int b=0;b<length/4;b++)
 			result.append("_/\\_");
 		
-		println(result);
+		printlnEr(result);
 	}
 	
 	//================================================

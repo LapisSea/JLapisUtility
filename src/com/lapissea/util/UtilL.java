@@ -1,33 +1,12 @@
 package com.lapissea.util;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
@@ -35,14 +14,14 @@ import java.util.zip.GZIPOutputStream;
 
 public class UtilL{
 	
-	private static final Map<Class<Object>,Function<Object,String>> CUSTOM_TO_STRINGS=new HashMap<>();
+	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
 	
-	public static final double	SQRT2D	=Math.sqrt(2);
-	public static final float	SQRT2F	=(float)SQRT2D;
+	public static final double SQRT2D=Math.sqrt(2);
+	public static final float  SQRT2F=(float)SQRT2D;
 	
 	@SuppressWarnings("unchecked")
-	protected static <T> void __REGISTER_CUSTOM_TO_STRING(Class<T> type, Function<T,String> funct){
-		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object,String>)funct);
+	protected static <T> void __REGISTER_CUSTOM_TO_STRING(Class<T> type, Function<T, String> funct){
+		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object, String>)funct);
 	}
 	
 	public static String toStringArray(Object[] arr){
@@ -60,7 +39,7 @@ public class UtilL{
 		return print.append("]").toString();
 	}
 	
-	public static String toString(Object...objs){
+	public static String toString(Object... objs){
 		if(objs==null) return "null";
 		StringBuilder print=new StringBuilder();
 		
@@ -83,11 +62,11 @@ public class UtilL{
 		if(isArray(obj)) print.append(unknownArrayToString(obj));
 		else if(obj instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)obj));
 		else{
-			Class<?> type=obj.getClass();
-			Function<Object,String> fun=CUSTOM_TO_STRINGS.get(type);
+			Class<?>                 type=obj.getClass();
+			Function<Object, String> fun =CUSTOM_TO_STRINGS.get(type);
 			if(fun!=null) print.append(fun.apply(obj));
 			else{
-				Entry<Class<Object>,Function<Object,String>> ent=CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(e.getKey(), type)).findFirst().orElse(null);
+				Entry<Class<Object>, Function<Object, String>> ent=CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(e.getKey(), type)).findFirst().orElse(null);
 				if(ent!=null) print.append(ent.getValue().apply(obj));
 				else print.append(obj.toString());
 			}
@@ -153,24 +132,24 @@ public class UtilL{
 	
 	public static <T> Stream<T> stream(Enumeration<T> e){
 		return StreamSupport.stream(
-				new Spliterators.AbstractSpliterator<T>(Long.MAX_VALUE, Spliterator.ORDERED){
-					
-					@Override
-					public boolean tryAdvance(Consumer<? super T> action){
-						if(e.hasMoreElements()){
-							action.accept(e.nextElement());
-							return true;
-						}
-						return false;
+			new Spliterators.AbstractSpliterator<T>(Long.MAX_VALUE, Spliterator.ORDERED){
+				
+				@Override
+				public boolean tryAdvance(Consumer<? super T> action){
+					if(e.hasMoreElements()){
+						action.accept(e.nextElement());
+						return true;
 					}
-					
-					@Override
-					public void forEachRemaining(Consumer<? super T> action){
-						while(e.hasMoreElements()){
-							action.accept(e.nextElement());
-						}
+					return false;
+				}
+				
+				@Override
+				public void forEachRemaining(Consumer<? super T> action){
+					while(e.hasMoreElements()){
+						action.accept(e.nextElement());
 					}
-				}, false);
+				}
+			}, false);
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -191,7 +170,7 @@ public class UtilL{
 		return list.toArray(a);
 	}
 	
-	public static <K,V> void doAndClear(Map<K,V> collection, BiConsumer<K,V> toDo){
+	public static <K, V> void doAndClear(Map<K, V> collection, BiConsumer<K, V> toDo){
 		if(collection.isEmpty()) return;
 		collection.forEach(toDo);
 		collection.clear();
@@ -199,7 +178,7 @@ public class UtilL{
 	
 	public static <T> void doAndClear(Collection<T> collection, Consumer<T> toDo){
 		if(collection.isEmpty()) return;
-		for(T t:collection){
+		for(T t : collection){
 			toDo.accept(t);
 		}
 		collection.clear();
@@ -240,7 +219,7 @@ public class UtilL{
 	public static Serializable fromString(String s){
 		//		byte[] data=Base64.getDecoder().decode(s);
 		byte[] data=s.getBytes();
-		Object o=null;
+		Object o   =null;
 		try{
 			ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data));
 			try{
@@ -257,7 +236,7 @@ public class UtilL{
 	
 	public static String toString(Serializable o) throws IOException{
 		ByteArrayOutputStream baos=new ByteArrayOutputStream();
-		ObjectOutputStream oos=new ObjectOutputStream(baos);
+		ObjectOutputStream    oos =new ObjectOutputStream(baos);
 		oos.writeObject(o);
 		oos.close();
 		//		return Base64.getEncoder().encodeToString(baos.toByteArray());
@@ -301,8 +280,8 @@ public class UtilL{
 	public static byte[] compress(byte[] data){
 		try{
 			if(data==null||data.length==0) return null;
-			ByteArrayOutputStream obj=new ByteArrayOutputStream();
-			GZIPOutputStream gzip=new GZIPOutputStream(obj);
+			ByteArrayOutputStream obj =new ByteArrayOutputStream();
+			GZIPOutputStream      gzip=new GZIPOutputStream(obj);
 			gzip.write(data);
 			gzip.close();
 			return obj.toByteArray();
@@ -316,8 +295,8 @@ public class UtilL{
 			String outStr="";
 			if(compressed==null||compressed.length==0) return "";
 			if(isCompressed(compressed)){
-				GZIPInputStream gis=new GZIPInputStream(new ByteArrayInputStream(compressed));
-				BufferedReader bufferedReader=new BufferedReader(new InputStreamReader(gis, "UTF-8"));
+				GZIPInputStream gis           =new GZIPInputStream(new ByteArrayInputStream(compressed));
+				BufferedReader  bufferedReader=new BufferedReader(new InputStreamReader(gis, "UTF-8"));
 				
 				String line;
 				while((line=bufferedReader.readLine())!=null){
@@ -357,7 +336,7 @@ public class UtilL{
 			Class<?> typeTx=data.getClass().getComponentType();
 			
 			if(instanceOf(typeTx, type)){
-				for(T tx:(T[])data){
+				for(T tx : (T[])data){
 					consumer.accept(tx);
 				}
 			}
@@ -369,7 +348,7 @@ public class UtilL{
 		try{
 			buffer=new ByteArrayOutputStream();
 			
-			int nRead;
+			int    nRead;
 			byte[] data=new byte[16384];
 			
 			while((nRead=is.read(data, 0, data.length))!=-1){
@@ -394,7 +373,7 @@ public class UtilL{
 		new Thread(()->runWhile(when, what), threadName).start();
 	}
 	
-	public static void fileLines(InputStream stream, UnsafeConsumer<String,IOException> cons) throws IOException{
+	public static void fileLines(InputStream stream, UnsafeConsumer<String, IOException> cons) throws IOException{
 		BufferedReader b=new BufferedReader(new InputStreamReader(stream, "ISO-8859-1"));
 		
 		for(String line;(line=b.readLine())!=null;){
@@ -478,9 +457,9 @@ public class UtilL{
 		return toSubstring.substring(pos+1);
 	}
 	
-	@SuppressWarnings({"unchecked","unused"})
+	@SuppressWarnings({"unchecked", "unused"})
 	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
-		if(true) throw(T)t;
+		if(true) throw (T)t;
 		return (T)t;
 	}
 	
@@ -500,11 +479,65 @@ public class UtilL{
 		return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.NONNULL), parallel);
 	}
 	
-	public static <In,Out> Out[] convert(In[] in, Class<Out> outType, Function<In,Out> converter){
+	public static <In, Out> Out[] convert(Collection<In> in, Class<Out> outType, Function<In, Out> converter){
+		Out[]        out =array(outType, in.size());
+		int          i   =0;
+		Iterator<In> iter=in.iterator();
+		while(iter.hasNext()){
+			out[i++]=converter.apply(iter.next());
+		}
+		return out;
+	}
+	
+	public static <Out> Out[] convert(int[] in, Class<Out> outType, IntFunction<Out> converter){
 		Out[] out=array(outType, in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
 		}
 		return out;
+	}
+	
+	public static <In, Out> Out[] convert(In[] in, Class<Out> outType, Function<In, Out> converter){
+		Out[] out=array(outType, in.length);
+		for(int i=0;i<in.length;i++){
+			out[i]=converter.apply(in[i]);
+		}
+		return out;
+	}
+	
+	public static <T> boolean contains(T[] array, T what){
+		if(what==null){
+			for(T t : array){
+				if(t==null) return true;
+			}
+			return false;
+		}
+		for(T t : array){
+			if(t!=null&&t.equals(what)) return true;
+		}
+		return false;
+	}
+	
+	public static int indexOf(int[] array, int what){
+		return indexOf(array, 0, what);
+	}
+	
+	public static int indexOf(int[] array, int start, int what){
+		for(;start<array.length;start++){
+			if(array[start]==what) return start;
+		}
+		return -1;
+	}
+	
+	public static boolean contains(int[] array, int what){
+		for(int t : array){
+			if(t==what) return true;
+		}
+		return false;
+	}
+	
+	public static void exitWithErrorMsg(Object... msg){
+		LogUtil.printlnEr(msg);
+		System.exit(-1);
 	}
 }
