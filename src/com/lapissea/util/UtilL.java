@@ -3,9 +3,7 @@ package com.lapissea.util;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.nio.FloatBuffer;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.function.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -14,100 +12,13 @@ import java.util.zip.GZIPOutputStream;
 
 public class UtilL{
 	
-	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
 	
 	public static final double SQRT2D=Math.sqrt(2);
 	public static final float  SQRT2F=(float)SQRT2D;
 	
-	@SuppressWarnings("unchecked")
-	protected static <T> void __REGISTER_CUSTOM_TO_STRING(Class<T> type, Function<T, String> funct){
-		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object, String>)funct);
-	}
-	
-	public static String toStringArray(Object[] arr){
-		if(arr==null) return "null";
-		StringBuilder print=new StringBuilder("[");
-		
-		for(int i=0;i<arr.length;i++){
-			Object a=arr[i];
-			if(isArray(a)) print.append(unknownArrayToString(a));
-			else if(a instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)a));
-			else print.append(toString(a));
-			if(i!=arr.length-1) print.append(", ");
-		}
-		
-		return print.append("]").toString();
-	}
-	
-	public static String toString(Object... objs){
-		if(objs==null) return "null";
-		StringBuilder print=new StringBuilder();
-		
-		for(int i=0;i<objs.length;i++){
-			Object a=objs[i];
-			if(isArray(a)) print.append(unknownArrayToString(a));
-			else if(a instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)a));
-			else print.append(toString(a));
-			if(i!=objs.length-1) print.append(" ");
-		}
-		
-		return print.toString();
-	}
-	
-	public static String toString(Object obj){
-		if(obj==null) return "null";
-		
-		StringBuilder print=new StringBuilder();
-		
-		if(isArray(obj)) print.append(unknownArrayToString(obj));
-		else if(obj instanceof FloatBuffer) print.append(floatBufferToString((FloatBuffer)obj));
-		else{
-			Class<?>                 type=obj.getClass();
-			Function<Object, String> fun =CUSTOM_TO_STRINGS.get(type);
-			if(fun!=null) print.append(fun.apply(obj));
-			else{
-				Entry<Class<Object>, Function<Object, String>> ent=CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(e.getKey(), type)).findFirst().orElse(null);
-				if(ent!=null) print.append(ent.getValue().apply(obj));
-				else print.append(obj.toString());
-			}
-		}
-		
-		return print.toString();
-	}
 	
 	public static boolean isArray(Object object){
 		return object!=null&&object.getClass().isArray();
-	}
-	
-	public static String floatBufferToString(FloatBuffer buff){
-		if(buff==null) return "null";
-		
-		StringBuilder print=new StringBuilder("Buffer{");
-		
-		buff=buff.duplicate();
-		buff.limit(buff.capacity());
-		if(buff.capacity()>0){
-			int j=0;
-			print.append(buff.get(j));
-			for(j=1;j<buff.capacity();j++)
-				print.append(", ").append(buff.get(j));
-		}
-		print.append('}');
-		return print.toString();
-	}
-	
-	private static String unknownArrayToString(Object arr){
-		if(arr==null) return "null";
-		if(arr instanceof boolean[]) return Arrays.toString((boolean[])arr);
-		if(arr instanceof float[]) return Arrays.toString((float[])arr);
-		if(arr instanceof byte[]) return Arrays.toString((byte[])arr);
-		if(arr instanceof int[]) return Arrays.toString((int[])arr);
-		if(arr instanceof long[]) return Arrays.toString((long[])arr);
-		if(arr instanceof short[]) return Arrays.toString((short[])arr);
-		if(arr instanceof char[]) return Arrays.toString((char[])arr);
-		if(arr instanceof double[]) return Arrays.toString((double[])arr);
-		if(arr instanceof Object[]) return toStringArray((Object[])arr);
-		return "ERR: "+arr;
 	}
 	
 	public static boolean TRUE(){
@@ -249,12 +160,6 @@ public class UtilL{
 		}catch(IOException e){}
 	}
 	
-	public static String stringFill(int length, char c){
-		char[] ch=new char[length];
-		Arrays.fill(ch, c);
-		return new String(ch);
-	}
-	
 	public static List<Field> getAllFields(Class<?> type){
 		return getAllFields(new ArrayList<Field>(), type);
 	}
@@ -381,6 +286,11 @@ public class UtilL{
 		}
 		
 	}
+	
+	public static <T> void forEach(T[] ts, Consumer<T> consumer){
+		for(T t : ts) consumer.accept(t);
+	}
+	
 	
 	public static class InputStreamSilent extends InputStream{
 		
@@ -536,8 +446,39 @@ public class UtilL{
 		return false;
 	}
 	
-	public static void exitWithErrorMsg(Object... msg){
+	public static <T extends Throwable> T exitWithErrorMsg(Object... msg) throws T{
 		LogUtil.printlnEr(msg);
 		System.exit(-1);
+		return null;
+	}
+	
+	public static byte[] longToBytes(long l){
+		byte[] dest=new byte[8];
+		return longToBytes(dest, l);
+	}
+	
+	public static byte[] longToBytes(byte[] dest, long l){
+		return longToBytes(dest, 0, l);
+	}
+	
+	public static byte[] longToBytes(byte[] dest, int destStart, long l){
+		for(int i=7;i>=0;i--){
+			dest[destStart+i]=(byte)(l&0xFF);
+			l>>=8;
+		}
+		return dest;
+	}
+	
+	public static long bytesToLong(byte[] b){
+		return bytesToLong(0, b);
+	}
+	
+	public static long bytesToLong(int start, byte[] b){
+		long result=0;
+		for(int i=0;i<8;i++){
+			result<<=8;
+			result|=(b[start+i]&0xFF);
+		}
+		return result;
 	}
 }

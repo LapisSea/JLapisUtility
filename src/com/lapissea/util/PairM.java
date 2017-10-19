@@ -24,7 +24,7 @@ public class PairM<Obj1,Obj2>{
 	
 	@Override
 	public String toString(){
-		return "DoubleObject["+UtilL.toString(obj1)+", "+UtilL.toString(obj2)+"}";
+		return "DoubleObject["+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";
 	}
 	
 	@Override
