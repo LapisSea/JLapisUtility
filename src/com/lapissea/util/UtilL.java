@@ -446,10 +446,11 @@ public class UtilL{
 		return false;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public static <T extends Throwable> T exitWithErrorMsg(Object... msg) throws T{
 		LogUtil.printlnEr(msg);
 		System.exit(-1);
-		return null;
+		return (T)new Exception();
 	}
 	
 	public static byte[] longToBytes(long l){

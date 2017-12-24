@@ -34,4 +34,8 @@ public class PairM<Obj1,Obj2>{
 		if(obj2!=null) hash=hash*31+obj2.hashCode();
 		return hash;
 	}
+	
+	public Obj1 get1(){
+		return obj1;
+	}
 }

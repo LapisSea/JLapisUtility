@@ -1,17 +1,22 @@
 package com.lapissea.util;
 
+
 import java.io.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 
 public class LogUtil{
 	
 	public static final class __{
 		
-		protected static boolean DEBUG_ACTIVE=true;
+		private static final long START_TIME=System.currentTimeMillis();
+		
+		protected static boolean DEBUG_ACTIVE=true, CLICKABLE;
 		protected static boolean     DEBUG_INIT;
 		protected static boolean     EXTERNAL_INIT;
 		protected static IntConsumer EXTERNAL_STREAM_OUT;
@@ -19,14 +24,37 @@ public class LogUtil{
 		protected static Runnable    EXTERNAL_CLEAR;
 		public static PrintStream OUT=System.out;
 		
-		public static void INJECT_DEBUG_PRINT(boolean active){
+		public static void INIT(boolean active, boolean clickable, String fileLog){
+			CLICKABLE=clickable;
 			if(DEBUG_INIT) return;
 			DEBUG_INIT=true;
 			DEBUG_ACTIVE=active;
 			if(!(DEBUG_ACTIVE=active)) return;
 			
-			System.setOut(new PrintStream(new DebugHeaderStream(System.out, "OUT")));
-			System.setErr(new PrintStream(new DebugHeaderStream(System.err, "ERR")));
+			Function<String, FileOutputStream> create=name->{
+				File f=new File(name).getAbsoluteFile();
+				try{
+					f.getParentFile().mkdirs();
+					return new FileOutputStream(f);
+				}catch(Exception e){
+					throw UtilL.uncheckedThrow(e);
+				}
+			};
+			
+			FileOutputStream fileRawOut=null, fileCsvOut=null;
+			if(fileLog!=null){
+				fileRawOut=create.apply(fileLog+".log");
+				fileCsvOut=create.apply(fileLog+".csv");
+				try{
+					fileCsvOut.write("Type, Time, Thread, Class, Function, Line, Message\n".getBytes());
+				}catch(IOException e){
+					throw UtilL.uncheckedThrow(e);
+				}
+			}
+			System.setOut(new PrintStream(new DebugHeaderStream(System.out, "OUT", fileRawOut, fileCsvOut)));
+			System.setErr(new PrintStream(new DebugHeaderStream(System.err, "ERR", fileRawOut, fileCsvOut)));
+			
+			
 		}
 		
 		private static final class DebugHeaderStream extends OutputStream{
@@ -34,52 +62,120 @@ public class LogUtil{
 			final OutputStream child;
 			final byte[]       prefix;
 			static boolean LAST_CH_ENDL=true;
+			private static int MAX_SIZE_POINT, MAX_SIZE_THREAD;
+			private static long             MAX_SIZE_TIM;
+			private        FileOutputStream fileCsvOut;
 			
-			public DebugHeaderStream(OutputStream child, String prefix){
-				this.child=child;
-				this.prefix=("["+prefix+"]").getBytes();
+			public DebugHeaderStream(OutputStream child, String prefix, FileOutputStream fileRawOut, FileOutputStream fileCsvOut){
+				if(fileRawOut!=null) this.child=new SplitStream(child, fileRawOut);
+				else this.child=child;
+				this.prefix=prefix.getBytes();
+				this.fileCsvOut=fileCsvOut;
 			}
 			
 			@Override
 			public void write(int b) throws IOException{
 				if(b=='\r') return;
 				
-				if(LAST_CH_ENDL){
+				if(LAST_CH_ENDL){//new line
 					LAST_CH_ENDL=false;
-					child.write(prefix);
 					debugHeader(child);
 				}
 				
 				if(b=='\n') LAST_CH_ENDL=true;
 				
 				child.write((char)b);
+				if(fileCsvOut!=null){
+					if(b=='"') fileCsvOut.write("\\\"".getBytes());
+					else if(b=='\n') fileCsvOut.write("\"\n".getBytes());
+					else fileCsvOut.write((char)b);
+				}
 			}
 			
-			private static void debugHeader(OutputStream stream){
-				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
-//				for(StackTraceElement stackTraceElement:trace){
-//					OUT.println(stackTraceElement.getClassName());
-//				}
-				int    depth=trace.length;
-				String name;
-				while(!(name=trace[--depth].getClassName())
-					       .equals(PrintStream.class.getName())&&
-				      !name.startsWith(LogUtil.class.getName())&&
-				      !name.startsWith(ArrayList.class.getName())){
-//					OUT.println(depth+" "+name);
+			private void debugHeader(OutputStream stream){
+				long tim=System.currentTimeMillis();
+				if(MAX_SIZE_TIM<tim-5000){
+					MAX_SIZE_TIM=tim;
+					MAX_SIZE_POINT=MAX_SIZE_THREAD=0;
 				}
+				
+				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
+//				for(int i=0;i<trace.length;i++){
+//					StackTraceElement stackTraceElement=trace[i];
+//					OUT.println(i+" "+stackTraceElement);
+//				}
+				
+				int    depth =trace.length;
+				String module="java.base";
+				
+				while(!module.equals(trace[--depth].getModuleName())) ;//get out of system.out/err
 				depth++;
-
-//				OUT.println();
-				StackTraceElement stack    =trace[depth];
-				String            className=stack.getClassName();
+				
+				while(trace[depth].getClassName().equals(LogUtil.class.getName())) depth++;//get out of LogUtil if called called trough it
+				
+				StackTraceElement stack=trace[depth];
+				
+				
+				String threadName=Thread.currentThread().getName();
+				byte[] pointerBytes;
+				
+				String className=stack.getClassName();
+				if(CLICKABLE) pointerBytes=stack.toString().getBytes();
+				else{
+					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+stack.getMethodName()+'('+stack.getLineNumber()+')').getBytes();
+				}
+				
+				if(MAX_SIZE_THREAD<threadName.length()){
+					MAX_SIZE_THREAD=threadName.length();
+					MAX_SIZE_TIM=tim;
+				}
+				if(MAX_SIZE_POINT<pointerBytes.length){
+					MAX_SIZE_POINT=pointerBytes.length;
+					MAX_SIZE_TIM=tim;
+				}
+				
 				try{
+					
+					if(fileCsvOut!=null){
+						
+						long passed=System.currentTimeMillis()-START_TIME;
+						
+						int ms,s,min,h;
+						
+						s=(int)Math.floor(passed/1000D);
+						ms=(int)(passed-s*1000);
+						min=(int)Math.floor(s/60D);
+						s-=min*60;
+						h=(int)Math.floor(min/60D);
+						min-=h*60;
+						
+						fileCsvOut.write(prefix);
+						fileCsvOut.write(",\"".getBytes());
+						fileCsvOut.write((h+":"+min+":"+s+"."+ms).getBytes());
+						fileCsvOut.write("\",\"".getBytes());
+						fileCsvOut.write(threadName.replace("\"", "\\\"").getBytes());
+						fileCsvOut.write("\",".getBytes());
+						fileCsvOut.write(className.getBytes());
+						fileCsvOut.write(',');
+						fileCsvOut.write(stack.getMethodName().getBytes());
+						fileCsvOut.write(',');
+						fileCsvOut.write(Integer.toString(stack.getLineNumber()).getBytes());
+						fileCsvOut.write(",\"".getBytes());
+					}
+					
+//					child.write('[');
+//					child.write(prefix);
+//					child.write(']');
 					stream.write('[');
-					stream.write(Thread.currentThread().getName().getBytes());
+					stream.write(threadName.getBytes());
+					for(int i=0, j=MAX_SIZE_THREAD-threadName.length();i<j;i++){
+						stream.write(' ');
+					}
 					stream.write("] [".getBytes());
-					stream.write(className.substring(className.lastIndexOf('.')+1).getBytes());
-					stream.write(':');
-					stream.write(Integer.toString(stack.getLineNumber()).getBytes());
+					stream.write(pointerBytes);
+					for(int i=0, j=MAX_SIZE_POINT-pointerBytes.length;i<j;i++){
+						stream.write(' ');
+					}
 					stream.write("]: ".getBytes());
 				}catch(IOException e){
 					e.printStackTrace();
@@ -103,23 +199,6 @@ public class LogUtil{
 			}
 		}
 		
-		public static void INJECT_FILE_LOG(String file){
-			try{
-				File             logFile=new File(file);
-				FileOutputStream fileOut=new FileOutputStream(logFile);
-				
-				if(logFile.exists()) logFile.delete();
-				else{
-					logFile.getParentFile().mkdirs();
-					logFile.createNewFile();
-				}
-				System.setErr(new PrintStream(new SplitStream(System.err, fileOut)));
-				System.setOut(new PrintStream(new SplitStream(System.out, fileOut)));
-				
-			}catch(Exception e){
-				e.printStackTrace();
-			}
-		}
 	}
 	
 	/**
@@ -171,6 +250,10 @@ public class LogUtil{
 	}
 	
 	public static void println(short obj){
+		out(obj+"\n");
+	}
+	
+	public static void println(String obj){
 		out(obj+"\n");
 	}
 	
