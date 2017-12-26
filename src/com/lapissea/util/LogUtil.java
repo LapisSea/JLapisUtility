@@ -63,7 +63,7 @@ public class LogUtil{
 			final byte[]       prefix;
 			static boolean LAST_CH_ENDL=true;
 			private static int MAX_SIZE_POINT, MAX_SIZE_THREAD;
-			private static long             MAX_SIZE_TIM;
+//			private static long             MAX_SIZE_TIM;
 			private        FileOutputStream fileCsvOut;
 			
 			public DebugHeaderStream(OutputStream child, String prefix, FileOutputStream fileRawOut, FileOutputStream fileCsvOut){
@@ -93,24 +93,24 @@ public class LogUtil{
 			}
 			
 			private void debugHeader(OutputStream stream){
-				long tim=System.currentTimeMillis();
-				if(MAX_SIZE_TIM<tim-5000){
-					MAX_SIZE_TIM=tim;
-					MAX_SIZE_POINT=MAX_SIZE_THREAD=0;
-				}
+//				long tim=System.currentTimeMillis();
+//				if(MAX_SIZE_TIM<tim-5000){
+//					MAX_SIZE_TIM=tim;
+//					MAX_SIZE_POINT=MAX_SIZE_THREAD=0;
+//				}
 				
 				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
 //				for(int i=0;i<trace.length;i++){
 //					StackTraceElement stackTraceElement=trace[i];
 //					OUT.println(i+" "+stackTraceElement);
 //				}
+//				System.exit(0);
 				
 				int    depth =trace.length;
 				String module="java.base";
 				
 				while(!module.equals(trace[--depth].getModuleName())) ;//get out of system.out/err
 				depth++;
-				
 				while(trace[depth].getClassName().equals(LogUtil.class.getName())) depth++;//get out of LogUtil if called called trough it
 				
 				StackTraceElement stack=trace[depth];
@@ -122,16 +122,18 @@ public class LogUtil{
 				String className=stack.getClassName();
 				if(CLICKABLE) pointerBytes=stack.toString().getBytes();
 				else{
-					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+stack.getMethodName()+'('+stack.getLineNumber()+')').getBytes();
+					String methodName=stack.getMethodName();
+					if(methodName.startsWith("lambda$"))methodName=methodName.substring(7);
+					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+methodName+'('+stack.getLineNumber()+')').getBytes();
 				}
 				
 				if(MAX_SIZE_THREAD<threadName.length()){
 					MAX_SIZE_THREAD=threadName.length();
-					MAX_SIZE_TIM=tim;
+//					MAX_SIZE_TIM=tim;
 				}
 				if(MAX_SIZE_POINT<pointerBytes.length){
 					MAX_SIZE_POINT=pointerBytes.length;
-					MAX_SIZE_TIM=tim;
+//					MAX_SIZE_TIM=tim;
 				}
 				
 				try{
@@ -162,6 +164,7 @@ public class LogUtil{
 						fileCsvOut.write(Integer.toString(stack.getLineNumber()).getBytes());
 						fileCsvOut.write(",\"".getBytes());
 					}
+					
 					
 //					child.write('[');
 //					child.write(prefix);
