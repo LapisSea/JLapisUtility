@@ -63,7 +63,6 @@ public class UtilL{
 			}, false);
 	}
 	
-	@SuppressWarnings("unchecked")
 	public static <T> T[] array(List<T> list){
 		if(list.isEmpty()) return null;
 		
@@ -71,7 +70,6 @@ public class UtilL{
 		return list.toArray(a);
 	}
 	
-	@SuppressWarnings("unchecked")
 	public static <T> T[] array(List<T> list, T[] arr){
 		if(list.isEmpty()) return null;
 		
@@ -101,7 +99,6 @@ public class UtilL{
 		t.start();
 	}
 	
-	@SuppressWarnings("unchecked")
 	public static <T> T[] array(Class<T> componentType, int length){
 		return (T[])Array.newInstance(componentType, length);
 	}
@@ -161,7 +158,7 @@ public class UtilL{
 	}
 	
 	public static List<Field> getAllFields(Class<?> type){
-		return getAllFields(new ArrayList<Field>(), type);
+		return getAllFields(new ArrayList<>(), type);
 	}
 	
 	public static List<Field> getAllFields(List<Field> fields, Class<?> type){
@@ -230,7 +227,6 @@ public class UtilL{
 		iterate(data, Object.class, consumer);
 	}
 	
-	@SuppressWarnings("unchecked")
 	public static <T> void iterate(Object data, Class<T> type, Consumer<T> consumer){
 		if(data==null) return;
 		
@@ -367,7 +363,6 @@ public class UtilL{
 		return toSubstring.substring(pos+1);
 	}
 	
-	@SuppressWarnings({"unchecked", "unused"})
 	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
 		if(true) throw (T)t;
 		return (T)t;
@@ -446,11 +441,11 @@ public class UtilL{
 		return false;
 	}
 	
-	@SuppressWarnings("unchecked")
 	public static <T extends Throwable> T exitWithErrorMsg(Object... msg) throws T{
-		LogUtil.printlnEr(msg);
+		String msg0=TextUtil.toString(msg);
+		LogUtil.printlnEr(msg0);
 		System.exit(-1);
-		return (T)new Exception();
+		return (T)new Exception(msg0);
 	}
 	
 	public static byte[] longToBytes(long l){

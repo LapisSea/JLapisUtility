@@ -12,7 +12,6 @@ public class TextUtil{
 	
 	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
 	
-	@SuppressWarnings("unchecked")
 	public static <T> void __REGISTER_CUSTOM_TO_STRING(Class<T> type, Function<T, String> funct){
 		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object, String>)funct);
 	}
@@ -113,7 +112,10 @@ public class TextUtil{
 	}
 	
 	public static String plural(String word, int count){
-		if(count==1) return word;
+		return count==1?word:plural(word);
+	}
+	
+	public static String plural(String word){
 		switch(word.charAt(word.length()-1)){
 		case 's':
 		case 'x':
@@ -148,7 +150,7 @@ public class TextUtil{
 		
 		int width=Arrays.stream(lines).mapToInt(String::length).max().orElse(0)+2;
 		result.append('/');
-		for(int i=0;i<width;i++)result.append('-');
+		for(int i=0;i<width;i++) result.append('-');
 		result.append("\\\n");
 		
 		for(String line : lines){
@@ -172,7 +174,7 @@ public class TextUtil{
 		}
 		
 		result.append('\\');
-		for(int i=0;i<width;i++)result.append('-');
+		for(int i=0;i<width;i++) result.append('-');
 		result.append('/');
 		
 		return result.toString();
@@ -221,16 +223,53 @@ public class TextUtil{
 		return result;
 	}
 	
-	public static String join(Collection<? extends CharSequence> strings, String s){
+	public static String join(Collection<?> data, String s){
+		Iterator<?> i=data.iterator();
+		if(!i.hasNext()) return "";
+		
 		StringBuilder result=new StringBuilder();
 		
-		Iterator<? extends CharSequence> i=strings.iterator();
-		
-		while(i.hasNext()){
+		while(true){
 			result.append(i.next());
 			if(i.hasNext()) result.append(s);
+			else return result.toString();
 		}
+	}
+	
+	public static String firstToLoverCase(String string){
+		if(string==null||string.isEmpty()) return string;
 		
-		return result.toString();
+		char c[]=string.toCharArray();
+		c[0]=Character.toLowerCase(c[0]);
+		return new String(c);
+	}
+	
+	public static String firstToUpperCase(String string){
+		if(string==null||string.isEmpty()) return string;
+		
+		char c[]=string.toCharArray();
+		c[0]=Character.toUpperCase(c[0]);
+		return new String(c);
+	}
+	
+	private static final char[] HEX_ARRAY="0123456789ABCDEF".toCharArray();
+	
+	public static String bytesToHex(byte[] bytes){
+		char[] hexChars=new char[bytes.length*2];
+		for(int j=0;j<bytes.length;j++){
+			int v=bytes[j]&0xFF;
+			hexChars[j*2]=HEX_ARRAY[v>>>4];
+			hexChars[j*2+1]=HEX_ARRAY[v&0x0F];
+		}
+		return new String(hexChars);
+	}
+	
+	public static byte[] hexStringToByteArray(String s){
+		int    len =s.length();
+		byte[] data=new byte[len/2];
+		for(int i=0;i<len;i+=2){
+			data[i/2]=(byte)((Character.digit(s.charAt(i), 16)<<4)+Character.digit(s.charAt(i+1), 16));
+		}
+		return data;
 	}
 }
