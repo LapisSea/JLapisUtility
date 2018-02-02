@@ -410,6 +410,14 @@ public class UtilL{
 		return out;
 	}
 	
+	public static <In, Out> Out[] convert(In[] in, IntFunction<Out[]> array, Function<In, Out> converter){
+		Out[] out=array.apply(in.length);
+		for(int i=0;i<in.length;i++){
+			out[i]=converter.apply(in[i]);
+		}
+		return out;
+	}
+	
 	public static <T> boolean contains(T[] array, T what){
 		if(what==null){
 			for(T t : array){

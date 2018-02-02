@@ -2,10 +2,10 @@ package com.lapissea.util;
 
 public class NanoTimer{
 	
-	private long	start;
-	private long[]	data	=new long[100];
-	private int		pos		=99,count;
-	private boolean	started	=false;
+	private long start;
+	private long[] data=new long[100];
+	private int pos=99, count;
+	private boolean started=false;
 	
 	public void start(){
 		started=true;
@@ -29,8 +29,21 @@ public class NanoTimer{
 		return toMs(sum/count);
 	}
 	
+	public double sAvrg100(){
+		if(count==0) return -1;
+		long sum=0;
+		for(int i=0;i<count;i++){
+			sum+=data[i];
+		}
+		return toS(sum/count);
+	}
+	
 	public double ms(){
 		return toMs(data[pos]);
+	}
+	
+	public double s(){
+		return toS(data[pos]);
 	}
 	
 	private static long now(){
@@ -39,6 +52,10 @@ public class NanoTimer{
 	
 	private static double toMs(long nano){
 		return Math.round(nano/10000D)/100D;
+	}
+	
+	private static double toS(long nano){
+		return Math.round(nano/10000000D)/100D;
 	}
 	
 }

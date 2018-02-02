@@ -19,7 +19,7 @@ public class TextUtil{
 	static{
 		__REGISTER_CUSTOM_TO_STRING(FloatBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
-			for(int i=0;i<buffer.capacity();){
+			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
 				if(++i<buffer.capacity()) print.append(", ");
 			}
@@ -28,7 +28,7 @@ public class TextUtil{
 		});
 		__REGISTER_CUSTOM_TO_STRING(IntBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("IntBuffer[");
-			for(int i=0;i<buffer.capacity();){
+			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
 				if(++i<buffer.capacity()) print.append(", ");
 			}
@@ -37,7 +37,7 @@ public class TextUtil{
 		});
 		__REGISTER_CUSTOM_TO_STRING(ByteBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
-			for(int i=0;i<buffer.capacity();){
+			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
 				if(++i<buffer.capacity()) print.append(", ");
 			}
@@ -99,12 +99,12 @@ public class TextUtil{
 			Function<Object, String> fun =CUSTOM_TO_STRINGS.get(type);
 			if(fun!=null) print.append(fun.apply(obj));
 			else{
-				Map.Entry<Class<Object>, Function<Object, String>> ent=
-					CUSTOM_TO_STRINGS.entrySet().stream().filter(e->instanceOf(type, e.getKey()))
-					                 .findFirst()
-					                 .orElse(null);
-				if(ent!=null) print.append(ent.getValue().apply(obj));
-				else print.append(obj.toString());
+				print.append(CUSTOM_TO_STRINGS.entrySet()
+				                              .stream()
+				                              .filter(e->instanceOf(type, e.getKey()))
+				                              .findFirst()
+				                              .map(e->e.getValue().apply(obj))
+				                              .orElseGet(obj::toString));
 			}
 		}
 		
