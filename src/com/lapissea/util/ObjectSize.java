@@ -23,8 +23,15 @@ public final class ObjectSize{
 		return size;
 	}
 	
+	public static int sizeof(){
+		try{
+			return sizeof(Class.forName(Thread.currentThread().getStackTrace()[2].getClassName()));
+		}catch(ClassNotFoundException e){
+			throw UtilL.uncheckedThrow(e);
+		}
+	}
+	
 	public static int sizeof(Class type){
-		
 		if(type==boolean.class) return Byte.SIZE;
 		if(type==Boolean.class) return Byte.SIZE;
 		

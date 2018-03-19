@@ -1,34 +1,21 @@
 package com.lapissea.util.event.change;
 
-import com.lapissea.util.event.Event;
-import com.lapissea.util.event.EventListener;
-import com.lapissea.util.event.EventRegistry;
+import com.lapissea.util.event.BoolEventRegistry;
+import com.lapissea.util.function.BooleanConsumer;
 
 import java.util.Objects;
 
-public class ChangeRegistryBool extends EventRegistry<ChangeRegistryBool, ChangeRegistryBool.ValueChange>{
-	
-	public class ValueChange extends Event<ChangeRegistryBool>{
-		public final boolean bool;
-		
-		public ValueChange(boolean bool){
-			super(ChangeRegistryBool.this);
-			this.bool=bool;
-		}
-		
-	}
+public class ChangeRegistryBool extends BoolEventRegistry{
 	
 	private boolean object;
 	
-	@SafeVarargs
-	public ChangeRegistryBool(boolean object, EventListener<ValueChange>... listener){
+	public ChangeRegistryBool(boolean object, BooleanConsumer... listener){
 		this(listener);
 		this.object=object;
 	}
 	
-	@SafeVarargs
-	public ChangeRegistryBool(EventListener<ValueChange>... listener){
-		for(EventListener<ValueChange> l : listener){
+	public ChangeRegistryBool(BooleanConsumer... listener){
+		for(BooleanConsumer l : listener){
 			register(l);
 		}
 	}
@@ -41,7 +28,7 @@ public class ChangeRegistryBool extends EventRegistry<ChangeRegistryBool, Change
 	
 	public void set(boolean object){
 		if(Objects.equals(this.object, object)) return;
-		dispatch(new ValueChange(object));
+		dispatch(object);
 		this.object=object;
 	}
 	

@@ -87,9 +87,11 @@ public class LogUtil{
 					}
 				}
 				
-				if(b=='\n') LAST_CH_ENDL=true;
+				if(b=='\n'){
+					LAST_CH_ENDL=true;
+					child.write(System.lineSeparator().getBytes());
+				}else child.write((char)b);
 				
-				child.write((char)b);
 				if(fileCsvOut!=null){
 					if(b=='"') fileCsvOut.write("\"\"".getBytes());
 					else if(b=='\n') fileCsvOut.write("\"\n".getBytes());
@@ -135,7 +137,7 @@ public class LogUtil{
 				else{
 					String methodName=stack.getMethodName();
 					if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+methodName+'('+stack.getLineNumber()+')').getBytes();
+					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()).getBytes();
 				}
 				
 				try{
@@ -359,12 +361,12 @@ public class LogUtil{
 	
 	//================================================
 	
-	private static void out(String s){
+	private static synchronized void out(String s){
 //		if(__.DEBUG_ACTIVE&&!__.DEBUG_INIT) System.err.println("LOG UTILITY DID NOT INJECT DEBUG HEADER!");
 		System.out.print(s);
 	}
 	
-	private static void err(String s){
+	private static synchronized void err(String s){
 //		if(__.DEBUG_ACTIVE&&!__.DEBUG_INIT) System.err.println("LOG UTILITY DID NOT INJECT DEBUG HEADER!");
 		System.err.print(s);
 	}

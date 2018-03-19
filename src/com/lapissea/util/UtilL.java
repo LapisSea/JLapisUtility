@@ -1,10 +1,14 @@
 package com.lapissea.util;
 
+import com.lapissea.util.function.IntIntConsumer;
+import com.lapissea.util.function.UnsafeConsumer;
+
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
@@ -287,6 +291,18 @@ public class UtilL{
 		for(T t : ts) consumer.accept(t);
 	}
 	
+	public static void sleepWhile(BooleanSupplier checkWhile){
+		sleepWhile(checkWhile, 1);
+	}
+	
+	public static void sleepWhile(BooleanSupplier checkWhile, long ms){
+		while(checkWhile.getAsBoolean()) sleep(ms);
+	}
+	
+	public static void sleepWhile(BooleanSupplier checkWhile, long ms, int ns){
+		while(checkWhile.getAsBoolean()) sleep(ms, ns);
+	}
+	
 	
 	public static class InputStreamSilent extends InputStream{
 		
@@ -364,7 +380,7 @@ public class UtilL{
 	}
 	
 	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
-		if(true) throw (T)t;
+		if(TRUE()) throw (T)t;
 		return (T)t;
 	}
 	
@@ -411,6 +427,14 @@ public class UtilL{
 	}
 	
 	public static <In, Out> Out[] convert(In[] in, IntFunction<Out[]> array, Function<In, Out> converter){
+		Out[] out=array.apply(in.length);
+		for(int i=0;i<in.length;i++){
+			out[i]=converter.apply(in[i]);
+		}
+		return out;
+	}
+	
+	public static <Out> Out[] convert(int[] in, IntFunction<Out[]> array, IntFunction<Out> converter){
 		Out[] out=array.apply(in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
@@ -485,4 +509,51 @@ public class UtilL{
 		}
 		return result;
 	}
+	
+	public static <In1, In2, Out> List<Out> combine(List<In1> in1, List<In2> in2, BiFunction<In1, In2, Out> converter){
+		int       size=Math.min(in1.size(), in2.size());
+		List<Out> out =new ArrayList<>(size);
+		for(int i=0;i<size;i++){
+			out.add(converter.apply(in1.get(i), in2.get(i)));
+		}
+		return out;
+	}
+	
+	public static <In1, In2, Out> Out[] combine(In1[] in1, In2[] in2, IntFunction<Out[]> array, BiFunction<In1, In2, Out> converter){
+		int   size=Math.min(in1.length, in2.length);
+		Out[] out =array.apply(size);
+		for(int i=0;i<size;i++){
+			out[i]=converter.apply(in1[i], in2[i]);
+		}
+		return out;
+	}
+	
+	public static <T> T[] concatenate(T[] a, T[] b){
+		int aLen=a.length;
+		int bLen=b.length;
+		
+		T[] c=array((Class<T>)a.getClass().getComponentType(), aLen+bLen);
+		System.arraycopy(a, 0, c, 0, aLen);
+		System.arraycopy(b, 0, c, aLen, bLen);
+		
+		return c;
+	}
+	
+	
+	public static void parallelFor(int[] array, int threads, IntIntConsumer consumer){
+		if(threads<=1){
+			for(int i=0;i<array.length;i++){
+				consumer.accept(i, array[i]);
+			}
+			return;
+		}
+		int chunkSize=array.length/threads;
+		
+		IntStream.range(0, threads).parallel().forEach(chunkId->{
+			for(int i=chunkId*chunkSize, j=Math.min(i+chunkSize, array.length);i<j;i++){
+				consumer.accept(i, array[i]);
+			}
+		});
+	}
+	
 }

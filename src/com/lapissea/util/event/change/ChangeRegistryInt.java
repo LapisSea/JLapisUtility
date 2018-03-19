@@ -1,37 +1,25 @@
 package com.lapissea.util.event.change;
 
-import com.lapissea.util.event.Event;
-import com.lapissea.util.event.EventListener;
-import com.lapissea.util.event.EventRegistry;
+import com.lapissea.util.event.IntEventRegistry;
 
 import java.util.Objects;
+import java.util.function.IntConsumer;
 
-public class ChangeRegistryInt extends EventRegistry<ChangeRegistryInt, ChangeRegistryInt.ValueChange>{
-	
-	public class ValueChange extends Event<ChangeRegistryInt>{
-		public final int bool;
-		
-		public ValueChange(int bool){
-			super(ChangeRegistryInt.this);
-			this.bool=bool;
-		}
-		
-	}
+public class ChangeRegistryInt extends IntEventRegistry{
 	
 	private int object;
 	
-	@SafeVarargs
-	public ChangeRegistryInt(int object, EventListener<ValueChange>... listener){
+	public ChangeRegistryInt(int object, IntConsumer... listener){
 		this(listener);
 		this.object=object;
 	}
 	
-	@SafeVarargs
-	public ChangeRegistryInt(EventListener<ValueChange>... listener){
-		for(EventListener<ValueChange> l : listener){
+	public ChangeRegistryInt(IntConsumer... listener){
+		for(IntConsumer l : listener){
 			register(l);
 		}
 	}
+	
 	public ChangeRegistryInt(){ }
 	
 	public ChangeRegistryInt(int object){
@@ -40,13 +28,14 @@ public class ChangeRegistryInt extends EventRegistry<ChangeRegistryInt, ChangeRe
 	
 	public void set(int object){
 		if(Objects.equals(this.object, object)) return;
-		dispatch(new ValueChange(object));
+		dispatch(object);
 		this.object=object;
 	}
 	
 	public int get(){
 		return object;
 	}
+	
 	@Override
 	public String toString(){
 		return getClass().getSimpleName()+"{val="+object+"}";

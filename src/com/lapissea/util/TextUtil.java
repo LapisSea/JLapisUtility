@@ -3,12 +3,15 @@ package com.lapissea.util;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.nio.LongBuffer;
 import java.util.*;
 import java.util.function.Function;
 
 import static com.lapissea.util.UtilL.*;
 
 public class TextUtil{
+	
+	public static final String NEW_LINE=System.lineSeparator();
 	
 	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
 	
@@ -21,7 +24,7 @@ public class TextUtil{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
-				if(++i<buffer.capacity()) print.append(", ");
+				if(++i<buffer.limit()) print.append(", ");
 			}
 			print.append(']');
 			return print.toString();
@@ -30,7 +33,7 @@ public class TextUtil{
 			StringBuilder print=new StringBuilder("IntBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
-				if(++i<buffer.capacity()) print.append(", ");
+				if(++i<buffer.limit()) print.append(", ");
 			}
 			print.append(']');
 			return print.toString();
@@ -38,9 +41,24 @@ public class TextUtil{
 		__REGISTER_CUSTOM_TO_STRING(ByteBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
 			for(int i=0;i<buffer.limit();){
-				print.append(buffer.get(i));
-				if(++i<buffer.capacity()) print.append(", ");
+				print.append(buffer.get(i)&0xFF);
+				if(++i<buffer.limit()) print.append(", ");
 			}
+			print.append(']');
+			return print.toString();
+		});
+		__REGISTER_CUSTOM_TO_STRING(LongBuffer.class, buffer->{
+			StringBuilder print=new StringBuilder("LongBuffer[");
+			for(int i=0;i<buffer.limit();){
+				print.append(buffer.get(i));
+				if(++i<buffer.limit()) print.append(", ");
+			}
+			print.append(']');
+			return print.toString();
+		});
+		__REGISTER_CUSTOM_TO_STRING(LinkedList.class, list->{
+			StringBuilder print=new StringBuilder("[");
+			list.forEach(e->print.append(toString(e)));
 			print.append(']');
 			return print.toString();
 		});
@@ -190,13 +208,13 @@ public class TextUtil{
 			
 			if(line.length()>=width){
 				
-				if(Character.isWhitespace(c)){
-					
-					int lastSpace=line.length()-1;
-					while(lastSpace>0&&Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
-					while(lastSpace>0&&!Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
-					
-					if(lastSpace!=0){
+				int lastSpace=line.length()-1;
+				while(lastSpace>0&&Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
+				while(lastSpace>0&&!Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
+				
+				if(lastSpace!=0){
+					if(Character.isWhitespace(c)){
+						
 						if(line.length()-lastSpace>width) return wrapLongString(str, line.length()-lastSpace);
 						
 						String lastWord=line.substring(lastSpace);
@@ -204,12 +222,12 @@ public class TextUtil{
 						result.add(line.toString());
 						line.setLength(0);
 						line.append(lastWord);
+					}else{
+						String overflowLine=line.toString();
+						result.add(overflowLine.substring(0, lastSpace).trim());
+						line.setLength(0);
+						line.append(overflowLine.substring(lastSpace));
 					}
-
-//					result.add(line.toString());
-//					line.setLength(0);
-//					while(i+1<str.length()&&Character.isWhitespace(c=str.charAt(i+1))&&c!='\n') i++;
-//					continue;
 				}
 			}
 			line.append(c);

@@ -2,36 +2,28 @@ package com.lapissea.util.event;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-public class EventRegistry<SELF, EventType extends Event<SELF>> implements IEventRegistry<SELF, EventType>{
+public class EventRegistry<ObjType>{
 	
-	private List<EventListener<EventType>> listeners;
+	private List<Consumer<ObjType>> listeners;
 	
-	@Override
-	public boolean register(EventListener<EventType> listener){
+	public boolean register(Consumer<ObjType> listener){
 		if(listeners==null) listeners=new ArrayList<>(2);
 		else if(listeners.contains(listener)) return false;
 		listeners.add(listener);
 		return true;
 	}
 	
-	@Override
-	public boolean unregister(EventListener<EventType> listener){
+	public boolean unregister(Consumer<ObjType> listener){
 		return listeners!=null&&listeners.remove(listener);
 	}
 	
-	@Override
-	public void dispatch(EventType event){
+	public void dispatch(ObjType obj){
 		if(listeners==null) return;
-		for(EventListener<EventType> listener : listeners){
-			listener.onEvent(event);
+		for(Consumer<ObjType> listener : listeners){
+			listener.accept(obj);
 		}
 	}
-	
-	@Override
-	public void asyncDispatch(EventType event){
-		if(listeners!=null) listeners.parallelStream().forEach(l->l.onEvent(event));
-	}
-	
 	
 }
