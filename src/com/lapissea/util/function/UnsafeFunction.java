@@ -1,4 +1,4 @@
-package com.lapissea.util;
+package com.lapissea.util.function;
 
 public interface UnsafeFunction<T, R, E extends Throwable>{
 	
