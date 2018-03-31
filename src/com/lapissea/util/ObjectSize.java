@@ -26,7 +26,7 @@ public final class ObjectSize{
 	public static int sizeof(){
 		try{
 			return sizeof(Class.forName(Thread.currentThread().getStackTrace()[2].getClassName()));
-		}catch(ClassNotFoundException e){
+		}catch(Throwable e){
 			throw UtilL.uncheckedThrow(e);
 		}
 	}

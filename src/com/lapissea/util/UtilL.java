@@ -379,9 +379,8 @@ public class UtilL{
 		return toSubstring.substring(pos+1);
 	}
 	
-	public static <T extends Throwable> T uncheckedThrow(Throwable t) throws T{
-		if(TRUE()) throw (T)t;
-		return (T)t;
+	public static <T extends Throwable> RuntimeException uncheckedThrow(Throwable throwable) throws T {
+		throw (T) throwable;
 	}
 	
 	public static <T> Stream<T> stream(Iterable<T> it){
@@ -473,11 +472,11 @@ public class UtilL{
 		return false;
 	}
 	
-	public static <T extends Throwable> T exitWithErrorMsg(Object... msg) throws T{
+	public static <T extends Throwable> RuntimeException exitWithErrorMsg(Object... msg) throws T{
 		String msg0=TextUtil.toString(msg);
 		LogUtil.printlnEr(msg0);
 		System.exit(-1);
-		return (T)new Exception(msg0);
+		return new RuntimeException(msg0);
 	}
 	
 	public static byte[] longToBytes(long l){

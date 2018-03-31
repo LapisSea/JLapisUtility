@@ -108,25 +108,22 @@ public class LogUtil{
 				
 				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
 				
-				String module="java.base";
-				int    last  =-1;
+				int    depth=trace.length;
+				String name;
+				while(!(name=trace[--depth].getClassName())
+					       .equals(PrintStream.class.getName())&&
+				      !name.startsWith(LogUtil.class.getName())&&
+				      !(name.startsWith("java.util")&&trace[depth].getMethodName().equals("forEach")));
+				depth++;
 				
-				for(int i=trace.length-1;i>=0;i--){
-					if(!module.equals(trace[i].getModuleName())&& //not java.base
-					   !trace[i].getClassName().startsWith(LogUtil.class.getName())){//not printer
-						last=i;
-					}
+				if(depth<0||depth>=trace.length)return;
+				
+				for(int i=0;i<trace.length;i++){
+					StackTraceElement stackTraceElement=trace[i];
+					OUT.println(i+" "+stackTraceElement);
 				}
-				if(last==-1) return;
-
-//				for(int i=0;i<trace.length;i++){
-//					StackTraceElement stackTraceElement=trace[i];
-//					OUT.println(i+" "+stackTraceElement);
-//				}
-//				OUT.println(last);
-//				System.exit(0);
 				
-				StackTraceElement stack=trace[last];
+				StackTraceElement stack=trace[depth];
 				
 				
 				String threadName=Thread.currentThread().getName();
