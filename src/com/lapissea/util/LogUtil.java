@@ -118,11 +118,6 @@ public class LogUtil{
 				
 				if(depth<0||depth>=trace.length)return;
 				
-				for(int i=0;i<trace.length;i++){
-					StackTraceElement stackTraceElement=trace[i];
-					OUT.println(i+" "+stackTraceElement);
-				}
-				
 				StackTraceElement stack=trace[depth];
 				
 				

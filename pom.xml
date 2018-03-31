@@ -4,7 +4,7 @@
 	<groupId>com.github.lapissea</groupId>
 	<artifactId>jlapisutil</artifactId>
 
-	<version>1.0.0</version>
+	<version>1.0.1</version>
 
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -126,7 +126,6 @@
 		<connection>scm:git:git://github.com/LapisSea/JLapisUtility.git</connection>
 		<developerConnection>scm:git:ssh://github.com:LapisSea/JLapisUtility.git</developerConnection>
 		<url>http://github.com/LapisSea/JLapisUtility/tree/master</url>
-		<tag>jlapisutil-1.0.0</tag>
 	</scm>
 
 	<properties>
