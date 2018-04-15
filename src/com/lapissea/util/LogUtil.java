@@ -308,6 +308,7 @@ public class LogUtil{
 	
 	/**
 	 * print fancy stuff and things
+	 * @param obj object to print
 	 */
 	public static void printWrappedEr(Object obj){
 		printlnEr(TextUtil.wrappedString(obj));
@@ -315,6 +316,7 @@ public class LogUtil{
 	
 	/**
 	 * print fancy stuff and things
+	 * @param obj object to print
 	 */
 	public static void printWrapped(Object obj){
 		println(TextUtil.wrappedString(obj));
