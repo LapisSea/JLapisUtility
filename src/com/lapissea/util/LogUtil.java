@@ -2,30 +2,60 @@ package com.lapissea.util;
 
 
 import java.io.*;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+
+import static com.lapissea.util.UtilL.*;
 
 public class LogUtil{
 	private static final long START_TIME=System.currentTimeMillis();
 	
-	public static final class __{
+	@SuppressWarnings("PointlessBitwiseExpression")
+	public static class Init{
 		
 		
-		protected static boolean DEBUG_ACTIVE=true, CLICKABLE;
-		protected static boolean     EXTERNAL_INIT;
-		protected static IntConsumer EXTERNAL_STREAM_OUT;
-		protected static IntConsumer EXTERNAL_STREAM_ERR;
-		protected static Runnable    EXTERNAL_CLEAR;
+		private Init(){}
+		
+		public static final int CREATE_OUTPUT_LOG     =1<<0;
+		public static final int CREATE_OUTPUT_CSV     =1<<1;
+		public static final int USE_CALL_POS          =1<<2;
+		public static final int USE_CALL_POS_CLICKABLE=1<<3;
+		public static final int USE_CALL_THREAD       =1<<4;
+		public static final int DISABLED              =1<<5;
+		public static final int USE_TABULATED_HEADER  =1<<6;
+		
 		public static PrintStream OUT=System.out;
 		public static PrintStream ERR=System.err;
 		
-		public static void create(boolean active, boolean clickable, String fileLog){
-			CLICKABLE=clickable;
-			DEBUG_ACTIVE=active;
-			if(!(DEBUG_ACTIVE=active)) return;
+		/**
+		 * @param flags Use or operator on defined fields to get a desired effect.
+		 * @see #CREATE_OUTPUT_LOG
+		 * @see #CREATE_OUTPUT_CSV
+		 * @see #USE_CALL_POS
+		 * @see #USE_CALL_POS_CLICKABLE
+		 * @see #DISABLED
+		 */
+		public static void attach(int flags){
+			attach(flags, "debug/log");
+		}
+		
+		/**
+		 * @param flags   Use or operator on defined fields to get a desired effect.
+		 * @param fileLog Pass a string to a path where the log/csv file needs to be (without the file extension).
+		 * @see #CREATE_OUTPUT_LOG
+		 * @see #CREATE_OUTPUT_CSV
+		 * @see #USE_CALL_POS
+		 * @see #USE_CALL_POS_CLICKABLE
+		 * @see #DISABLED
+		 */
+		public static void attach(int flags, @NotNull String fileLog){
+			if(checkFlag(flags, DISABLED)) return;
+			
 			
 			Function<String, FileOutputStream> create=name->{
 				File f=new File(name).getAbsoluteFile();
@@ -38,34 +68,185 @@ public class LogUtil{
 			};
 			
 			FileOutputStream fileRawOut=null, fileCsvOut=null;
-			if(fileLog!=null){
-				fileRawOut=create.apply(fileLog+".log");
-				fileCsvOut=create.apply(fileLog+".csv");
+			
+			if(checkFlag(flags, CREATE_OUTPUT_LOG)) fileRawOut=create.apply(fileLog+".log");
+			if(checkFlag(flags, CREATE_OUTPUT_CSV)){
 				try{
+					fileCsvOut=create.apply(fileLog+".csv");
 					fileCsvOut.write("Type, Time, Thread, Class, Function, Line, Message\n".getBytes());
 				}catch(IOException e){
 					throw UtilL.uncheckedThrow(e);
 				}
 			}
-			System.setOut(new PrintStream(new DebugHeaderStream(System.out, "OUT", fileRawOut, fileCsvOut)));
-			System.setErr(new PrintStream(new DebugHeaderStream(System.err, "ERR", fileRawOut, fileCsvOut)));
 			
+			class P extends PrintStream{
+				
+				public P(@NotNull OutputStream out){
+					super(out);
+				}
+				
+				@Override
+				public void write(@NotNull byte[] buf, int off, int len){
+					super.write(buf, off, len);
+					flush();
+				}
+				
+				@Override
+				public void print(String s){
+					super.print(s);
+				}
+			}
+			
+			Function<StackTraceElement, String> header=getHeader(flags);
+			
+			System.setOut(new P(new DebugHeaderStream(System.out, "OUT", fileRawOut, fileCsvOut, header)));
+			System.setErr(new P(new DebugHeaderStream(System.err, "ERR", fileRawOut, fileCsvOut, header)));
 			
 		}
 		
+		private static Function<StackTraceElement, String> getHeader(int flags){
+			
+			boolean tabulated=checkFlag(flags, USE_TABULATED_HEADER);
+			
+			if(checkFlag(flags, USE_CALL_THREAD)){
+				Tabulator threadTab=new Tabulator(tabulated);
+				
+				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
+					
+					Tabulator stackTab=new Tabulator(tabulated);
+					threadTab.onGrow=stackTab::reduce;
+					
+					return stack->{
+						String threadSt="["+Thread.currentThread().getName()+"] ";
+						String stackSt ="["+stack.toString()+"]";
+						
+						return threadSt+threadTab.getTab(threadSt.length())+
+						       stackSt+stackTab.getTab(stackSt.length())+": ";
+					};
+				}
+				
+				if(checkFlag(flags, USE_CALL_POS)){
+					
+					Tabulator stackTab=new Tabulator(tabulated);
+					threadTab.onGrow=stackTab::reduce;
+					
+					return stack->{
+						String methodName=stack.getMethodName();
+						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
+						String className=stack.getClassName();
+						
+						String threadSt="["+Thread.currentThread().getName()+"] ";
+						String stackSt ="["+className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
+						
+						return threadSt+threadTab.getTab(threadSt.length())+stackSt+stackTab.getTab(stackSt.length())+": ";
+					};
+				}
+				
+				return stack->{
+					String threadSt="["+Thread.currentThread().getName()+"]";
+					
+					return threadSt+threadTab.getTab(threadSt.length())+": ";
+				};
+			}else{
+				
+				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
+					
+					Tabulator stackTab=new Tabulator(tabulated);
+					
+					return stack->{
+						String stackSt="["+stack.toString()+"]";
+						return stackSt+stackTab.getTab(stackSt.length())+": ";
+					};
+				}
+				
+				if(checkFlag(flags, USE_CALL_POS)){
+					
+					Tabulator stackTab=new Tabulator(tabulated);
+					
+					return stack->{
+						String methodName=stack.getMethodName();
+						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
+						String className=stack.getClassName();
+						
+						String stackSt="["+className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
+						
+						return stackSt+stackTab.getTab(stackSt.length())+": ";
+					};
+				}
+				
+				return stack->"";
+			}
+		}
+		
+		@Deprecated
 		public static void destroy(){
+			detach();
+		}
+		
+		public static void detach(){
 			System.setOut(OUT);
 			System.setErr(ERR);
 		}
 		
+		private static final class Tabulator{
+			
+			private final List<PairM<Integer, Long>> sizeTimeTable=new ArrayList<>();
+			
+			public IntConsumer onGrow=i->{};
+			int     prevSize;
+			boolean tabulated;
+			
+			public Tabulator(boolean tabulated){
+				this.tabulated=tabulated;
+			}
+			
+			public String getTab(int size){
+				if(!tabulated) return "";
+				
+				long tim=System.currentTimeMillis();
+				
+				int max=0;
+				
+				Iterator<PairM<Integer, Long>> i=sizeTimeTable.iterator();
+				while(i.hasNext()){
+					PairM<Integer, Long> p=i.next();
+					if(p.obj2+1000<tim) i.remove();
+					else max=Math.max(max, p.obj1);
+				}
+				if(size>max) onGrow.accept(size-max);
+				
+				sizeTimeTable.add(new PairM<>(size, tim));
+				
+				return TextUtil.stringFill(Math.max(0, max-size), ' ');
+			}
+			
+			
+			public void reduce(int amount){
+				if(!tabulated) return;
+				Iterator<PairM<Integer, Long>> i=sizeTimeTable.iterator();
+				while(i.hasNext()){
+					PairM<Integer, Long> p=i.next();
+					p.obj1-=amount;
+					if(p.obj1<0) i.remove();
+				}
+			}
+			
+		}
+		
 		private static final class DebugHeaderStream extends OutputStream{
 			
-			final OutputStream child;
-			final byte[]       prefix;
-			static boolean LAST_CH_ENDL=true;
-			private FileOutputStream fileCsvOut;
+			@Nullable
+			private final OutputStream child;
+			@NotNull
+			private final byte[]       prefix;
+			private final StringBuilder lineBuild  =new StringBuilder();
+			private       boolean       needsHeader=true;
 			
-			public DebugHeaderStream(OutputStream child, String prefix, FileOutputStream fileRawOut, FileOutputStream fileCsvOut){
+			private final FileOutputStream                    fileCsvOut;
+			private final Function<StackTraceElement, String> header;
+			
+			public DebugHeaderStream(OutputStream child, @NotNull String prefix, @Nullable FileOutputStream fileRawOut, FileOutputStream fileCsvOut, Function<StackTraceElement, String> header){
+				this.header=header;
 				if(fileRawOut!=null) this.child=new SplitStream(child, fileRawOut);
 				else this.child=child;
 				this.prefix=prefix.getBytes();
@@ -73,24 +254,34 @@ public class LogUtil{
 			}
 			
 			@Override
-			public void write(int b) throws IOException{
-				if(b=='\r') return;
-				
-				if(LAST_CH_ENDL){//new line
-					LAST_CH_ENDL=false;
+			public void flush() throws IOException{
+				if(needsHeader){
+					needsHeader=false;
+					
 					try{
-						debugHeader(child);
+						debugHeader();
 					}catch(Exception e){
+						Init.detach();
 						System.setErr(ERR);
 						e.printStackTrace();
 						System.exit(0);
 					}
 				}
+				for(byte b : lineBuild.toString().getBytes()){
+					if(b=='\n') needsHeader=true;
+					child.write(b);
+				}
+				lineBuild.setLength(0);
+				child.flush();
+			}
+			
+			@Override
+			public void write(int b) throws IOException{
+				if(b=='\r') return;
 				
 				if(b=='\n'){
-					LAST_CH_ENDL=true;
-					child.write(System.lineSeparator().getBytes());
-				}else child.write((char)b);
+					lineBuild.append(System.lineSeparator());
+				}else lineBuild.append((char)b);
 				
 				if(fileCsvOut!=null){
 					if(b=='"') fileCsvOut.write("\"\"".getBytes());
@@ -99,80 +290,57 @@ public class LogUtil{
 				}
 			}
 			
-			private void debugHeader(OutputStream stream){
-//				long tim=System.currentTimeMillis();
-//				if(MAX_SIZE_TIM<tim-5000){
-//					MAX_SIZE_TIM=tim;
-//					MAX_SIZE_POINT=MAX_SIZE_THREAD=0;
-//				}
+			private void debugHeader() throws IOException{
 				
+				StackTraceElement stack=getCallStack();
+				if(stack==null) return;
+				
+				if(fileCsvOut!=null) writeCvs(stack);
+				
+				child.write(header.apply(stack).getBytes());
+			}
+			
+			private StackTraceElement getCallStack(){
 				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
 				
 				int    depth=trace.length;
 				String name;
+				//noinspection StatementWithEmptyBody
 				while(!(name=trace[--depth].getClassName())
 					       .equals(PrintStream.class.getName())&&
 				      !name.startsWith(LogUtil.class.getName())&&
-				      !(name.startsWith("java.util")&&trace[depth].getMethodName().equals("forEach")));
+				      !(name.startsWith("java.util")&&trace[depth].getMethodName().equals("forEach"))) ;
 				depth++;
 				
-				if(depth<0||depth>=trace.length)return;
+				if(depth<0||depth>=trace.length) return null;
+				return trace[depth];
+			}
+			
+			private void writeCvs(@NotNull StackTraceElement stack) throws IOException{
 				
-				StackTraceElement stack=trace[depth];
+				long passed=System.currentTimeMillis()-START_TIME;
 				
+				int ms, s, min, h;
 				
-				String threadName=Thread.currentThread().getName();
-				byte[] pointerBytes;
+				s=(int)Math.floor(passed/1000D);
+				ms=(int)(passed-s*1000);
+				min=(int)Math.floor(s/60D);
+				s-=min*60;
+				h=(int)Math.floor(min/60D);
+				min-=h*60;
 				
-				String className=stack.getClassName();
-				if(CLICKABLE) pointerBytes=stack.toString().getBytes();
-				else{
-					String methodName=stack.getMethodName();
-					if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-					pointerBytes=(className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()).getBytes();
-				}
-				
-				try{
-					
-					if(fileCsvOut!=null){
-						
-						long passed=System.currentTimeMillis()-START_TIME;
-						
-						int ms, s, min, h;
-						
-						s=(int)Math.floor(passed/1000D);
-						ms=(int)(passed-s*1000);
-						min=(int)Math.floor(s/60D);
-						s-=min*60;
-						h=(int)Math.floor(min/60D);
-						min-=h*60;
-						
-						fileCsvOut.write(prefix);
-						fileCsvOut.write(",\"".getBytes());
-						fileCsvOut.write((h+":"+min+":"+s+"."+ms).getBytes());
-						fileCsvOut.write("\",\"".getBytes());
-						fileCsvOut.write(threadName.replace("\"", "\"\"").getBytes());
-						fileCsvOut.write("\",".getBytes());
-						fileCsvOut.write(className.getBytes());
-						fileCsvOut.write(',');
-						fileCsvOut.write(stack.getMethodName().getBytes());
-						fileCsvOut.write(',');
-						fileCsvOut.write(Integer.toString(stack.getLineNumber()).getBytes());
-						fileCsvOut.write(",\"".getBytes());
-					}
-
-
-//					child.write('[');
-//					child.write(prefix);
-//					child.write(']');
-					stream.write('[');
-					stream.write(threadName.getBytes());
-					stream.write("] [".getBytes());
-					stream.write(pointerBytes);
-					stream.write("]: ".getBytes());
-				}catch(IOException e){
-					e.printStackTrace();
-				}
+				fileCsvOut.write(prefix);
+				fileCsvOut.write(",\"".getBytes());
+				fileCsvOut.write((h+":"+min+":"+s+"."+ms).getBytes());
+				fileCsvOut.write("\",\"".getBytes());
+				fileCsvOut.write(Thread.currentThread().getName().replace("\"", "\"\"").getBytes());
+				fileCsvOut.write("\",".getBytes());
+				fileCsvOut.write(stack.getClassName().getBytes());
+				fileCsvOut.write(',');
+				fileCsvOut.write(stack.getMethodName().getBytes());
+				fileCsvOut.write(',');
+				fileCsvOut.write(Integer.toString(stack.getLineNumber()).getBytes());
+				fileCsvOut.write(",\"".getBytes());
 			}
 		}
 		
@@ -192,13 +360,6 @@ public class LogUtil{
 			}
 		}
 		
-	}
-	
-	/**
-	 * Note that this clears only external window.
-	 */
-	public static void clear(){
-		__.EXTERNAL_CLEAR.run();
 	}
 	
 	//================================================
@@ -308,6 +469,7 @@ public class LogUtil{
 	
 	/**
 	 * print fancy stuff and things
+	 *
 	 * @param obj object to print
 	 */
 	public static void printWrappedEr(Object obj){
@@ -316,6 +478,7 @@ public class LogUtil{
 	
 	/**
 	 * print fancy stuff and things
+	 *
 	 * @param obj object to print
 	 */
 	public static void printWrapped(Object obj){
@@ -331,13 +494,11 @@ public class LogUtil{
 		printStackTrace(msg, Thread.currentThread().getStackTrace());
 	}
 	
-	public static void printStackTrace(String msg, StackTraceElement[] a1){
+	public static void printStackTrace(@Nullable String msg, @NotNull StackTraceElement[] a1){
 		StringBuilder result=new StringBuilder();
 		
 		if(msg==null){
-			DateFormat dateFormat=new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-			Calendar   cal       =Calendar.getInstance();
-			result.append("Invoke time: ").append(dateFormat.format(cal.getTime())).append("\n");
+			result.append("Invoke time: ").append(new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date())).append("\n");
 		}else result.append(msg).append("\n");
 		
 		int length=0;
@@ -355,13 +516,11 @@ public class LogUtil{
 	
 	//================================================
 	
-	private static synchronized void out(String s){
-//		if(__.DEBUG_ACTIVE&&!__.DEBUG_INIT) System.err.println("LOG UTILITY DID NOT INJECT DEBUG HEADER!");
+	private static void out(String s){
 		System.out.print(s);
 	}
 	
-	private static synchronized void err(String s){
-//		if(__.DEBUG_ACTIVE&&!__.DEBUG_INIT) System.err.println("LOG UTILITY DID NOT INJECT DEBUG HEADER!");
+	private static void err(String s){
 		System.err.print(s);
 	}
 	

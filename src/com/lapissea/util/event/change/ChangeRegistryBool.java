@@ -1,5 +1,6 @@
 package com.lapissea.util.event.change;
 
+import com.lapissea.util.NotNull;
 import com.lapissea.util.event.BoolEventRegistry;
 import com.lapissea.util.function.BooleanConsumer;
 
@@ -14,7 +15,7 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 		this.object=object;
 	}
 	
-	public ChangeRegistryBool(BooleanConsumer... listener){
+	public ChangeRegistryBool(@NotNull BooleanConsumer... listener){
 		for(BooleanConsumer l : listener){
 			register(l);
 		}
@@ -36,6 +37,7 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 		return object;
 	}
 	
+	@NotNull
 	@Override
 	public String toString(){
 		return getClass().getSimpleName()+"{val="+object+"}";

@@ -6,7 +6,11 @@ import com.lapissea.util.function.UnsafeConsumer;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.*;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -17,11 +21,12 @@ import java.util.zip.GZIPOutputStream;
 public class UtilL{
 	
 	
-	public static final double SQRT2D=Math.sqrt(2);
-	public static final float  SQRT2F=(float)SQRT2D;
+	public static final double SQRT2D  =Math.sqrt(2);
+	public static final float  SQRT2F  =(float)SQRT2D;
+	public static final byte[] NO_BYTES=new byte[0];
 	
 	
-	public static boolean isArray(Object object){
+	public static boolean isArray(@Nullable Object object){
 		return object!=null&&object.getClass().isArray();
 	}
 	
@@ -45,12 +50,12 @@ public class UtilL{
 		}
 	}
 	
-	public static <T> Stream<T> stream(Enumeration<T> e){
+	public static <T> Stream<T> stream(@NotNull Enumeration<T> e){
 		return StreamSupport.stream(
 			new Spliterators.AbstractSpliterator<T>(Long.MAX_VALUE, Spliterator.ORDERED){
 				
 				@Override
-				public boolean tryAdvance(Consumer<? super T> action){
+				public boolean tryAdvance(@NotNull Consumer<? super T> action){
 					if(e.hasMoreElements()){
 						action.accept(e.nextElement());
 						return true;
@@ -59,7 +64,7 @@ public class UtilL{
 				}
 				
 				@Override
-				public void forEachRemaining(Consumer<? super T> action){
+				public void forEachRemaining(@NotNull Consumer<? super T> action){
 					while(e.hasMoreElements()){
 						action.accept(e.nextElement());
 					}
@@ -67,14 +72,18 @@ public class UtilL{
 			}, false);
 	}
 	
-	public static <T> T[] array(List<T> list){
+	@Deprecated
+	@SuppressWarnings("unchecked")
+	public static <T> T[] array(@NotNull List<T> list){
 		if(list.isEmpty()) return null;
 		
 		T[] a=(T[])UtilL.array(list.get(0).getClass(), list.size());
 		return list.toArray(a);
 	}
 	
-	public static <T> T[] array(List<T> list, T[] arr){
+	@Deprecated
+	@SuppressWarnings("unchecked")
+	public static <T> T[] array(@NotNull List<T> list, @NotNull T[] arr){
 		if(list.isEmpty()) return null;
 		
 		T[] a;
@@ -83,13 +92,13 @@ public class UtilL{
 		return list.toArray(a);
 	}
 	
-	public static <K, V> void doAndClear(Map<K, V> collection, BiConsumer<K, V> toDo){
+	public static <K, V> void doAndClear(@NotNull Map<K, V> collection, @NotNull BiConsumer<K, V> toDo){
 		if(collection.isEmpty()) return;
 		collection.forEach(toDo);
 		collection.clear();
 	}
 	
-	public static <T> void doAndClear(Collection<T> collection, Consumer<T> toDo){
+	public static <T> void doAndClear(@NotNull Collection<T> collection, @NotNull Consumer<T> toDo){
 		if(collection.isEmpty()) return;
 		for(T t : collection){
 			toDo.accept(t);
@@ -97,17 +106,19 @@ public class UtilL{
 		collection.clear();
 	}
 	
-	public static void startDaemonThread(Runnable run, String name){
+	public static void startDaemonThread(@NotNull Runnable run, @NotNull String name){
 		Thread t=new Thread(run, name);
 		t.setDaemon(true);
 		t.start();
 	}
 	
+	@NotNull
+	@SuppressWarnings("unchecked")
 	public static <T> T[] array(Class<T> componentType, int length){
 		return (T[])Array.newInstance(componentType, length);
 	}
 	
-	public static boolean instanceOf(Class<?> left, Class<?> right){
+	public static boolean instanceOf(@NotNull Class<?> left, @NotNull Class<?> right){
 		if(left==right) return true;
 		try{
 			left.asSubclass(right);
@@ -116,37 +127,31 @@ public class UtilL{
 		return false;
 	}
 	
-	public static boolean instanceOf(Object left, Class<?> right){
+	public static boolean instanceOf(@Nullable Object left, @NotNull Class<?> right){
 		return left!=null&&instanceOf(left.getClass(), right);
 	}
 	
-	public static boolean instanceOf(Class<?> left, Object right){
+	public static boolean instanceOf(@NotNull Class<?> left, @NotNull Object right){
 		return instanceOf(left, right.getClass());
 	}
 	
-	public static boolean instanceOf(Object left, Object right){
+	public static boolean instanceOf(@NotNull Object left, @NotNull Object right){
 		return instanceOf(left.getClass(), right.getClass());
 	}
 	
-	public static Serializable fromString(String s){
+	@NotNull
+	public static <T> T fromString(@NotNull String s){
 		//		byte[] data=Base64.getDecoder().decode(s);
 		byte[] data=s.getBytes();
-		Object o   =null;
-		try{
-			ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data));
-			try{
-				o=ois.readObject();
-			}catch(ClassNotFoundException e){
-				e.printStackTrace();
-			}
-			ois.close();
-		}catch(IOException e){
-			e.printStackTrace();
+		try(ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data))){
+			return (T)ois.readObject();
+		}catch(Exception e){
+			throw uncheckedThrow(e);
 		}
-		return (Serializable)o;
 	}
 	
-	public static String toString(Serializable o) throws IOException{
+	@NotNull
+	public static String toString(@NotNull Serializable o) throws IOException{
 		ByteArrayOutputStream baos=new ByteArrayOutputStream();
 		ObjectOutputStream    oos =new ObjectOutputStream(baos);
 		oos.writeObject(o);
@@ -155,17 +160,19 @@ public class UtilL{
 		return new String(baos.toByteArray());
 	}
 	
-	public static void closeSilenty(Closeable closeable){
+	public static void closeSilenty(@NotNull Closeable closeable){
 		try{
 			closeable.close();
 		}catch(IOException e){}
 	}
 	
-	public static List<Field> getAllFields(Class<?> type){
+	@NotNull
+	public static List<Field> getAllFields(@NotNull Class<?> type){
 		return getAllFields(new ArrayList<>(), type);
 	}
 	
-	public static List<Field> getAllFields(List<Field> fields, Class<?> type){
+	@NotNull
+	public static List<Field> getAllFields(@NotNull List<Field> fields, @NotNull Class<?> type){
 		fields.addAll(Arrays.asList(type.getDeclaredFields()));
 		
 		if(type.getSuperclass()!=null){
@@ -175,7 +182,8 @@ public class UtilL{
 		return fields;
 	}
 	
-	public static String compress(String data){
+	@NotNull
+	public static String compress(@NotNull String data){
 		try{
 			return new String(compress(data.getBytes("UTF-8")));
 		}catch(Exception e){
@@ -183,9 +191,10 @@ public class UtilL{
 		}
 	}
 	
-	public static byte[] compress(byte[] data){
+	@NotNull
+	public static byte[] compress(@Nullable byte[] data){
 		try{
-			if(data==null||data.length==0) return null;
+			if(data==null||data.length==0) return NO_BYTES;
 			ByteArrayOutputStream obj =new ByteArrayOutputStream();
 			GZIPOutputStream      gzip=new GZIPOutputStream(obj);
 			gzip.write(data);
@@ -196,22 +205,26 @@ public class UtilL{
 		}
 	}
 	
-	public static String decompress(final byte[] compressed){
+	@NotNull
+	public static String decompress(@Nullable final byte[] compressed){
 		try{
-			String outStr="";
+			StringBuilder outStr=new StringBuilder();
 			if(compressed==null||compressed.length==0) return "";
+			
 			if(isCompressed(compressed)){
 				GZIPInputStream gis           =new GZIPInputStream(new ByteArrayInputStream(compressed));
 				BufferedReader  bufferedReader=new BufferedReader(new InputStreamReader(gis, "UTF-8"));
 				
 				String line;
 				while((line=bufferedReader.readLine())!=null){
-					outStr+=line;
+					outStr.append(line);
 				}
-			}else{
-				outStr=new String(compressed);
+				
+				return outStr.toString();
 			}
-			return outStr;
+			
+			return new String(compressed);
+			
 		}catch(Exception e){
 			throw new RuntimeException(e);
 		}
@@ -221,17 +234,19 @@ public class UtilL{
 		return compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC>>8);
 	}
 	
-	public static Class<?> findClosestCommonSuper(Class<?> a, Class<?> b){
+	@NotNull
+	public static Class<?> findClosestCommonSuper(@NotNull Class<?> a, @NotNull Class<?> b){
 		while(!a.isAssignableFrom(b))
 			a=a.getSuperclass();
 		return a;
 	}
 	
-	public static void iterate(Object data, Consumer<Object> consumer){
+	public static void iterate(Object data, @NotNull Consumer<Object> consumer){
 		iterate(data, Object.class, consumer);
 	}
 	
-	public static <T> void iterate(Object data, Class<T> type, Consumer<T> consumer){
+	@SuppressWarnings("unchecked")
+	public static <T> void iterate(@Nullable Object data, @NotNull Class<T> type, @NotNull Consumer<T> consumer){
 		if(data==null) return;
 		
 		if(instanceOf(data, type)) consumer.accept((T)data);
@@ -248,7 +263,8 @@ public class UtilL{
 		}
 	}
 	
-	public static byte[] readAll(InputStream is){
+	@NotNull
+	public static byte[] readAll(@NotNull InputStream is){
 		ByteArrayOutputStream buffer;
 		try{
 			buffer=new ByteArrayOutputStream();
@@ -265,20 +281,20 @@ public class UtilL{
 		return buffer.toByteArray();
 	}
 	
-	public static boolean emptyOrNull(String string){
+	public static boolean emptyOrNull(@Nullable String string){
 		return string==null||string.isEmpty();
 	}
 	
-	public static void runWhile(BooleanSupplier when, Runnable what){
+	public static void runWhile(@NotNull BooleanSupplier when, @NotNull Runnable what){
 		while(when.getAsBoolean())
 			what.run();
 	}
 	
-	public static void runWhileThread(String threadName, BooleanSupplier when, Runnable what){
+	public static void runWhileThread(@NotNull String threadName, @NotNull BooleanSupplier when, @NotNull Runnable what){
 		new Thread(()->runWhile(when, what), threadName).start();
 	}
 	
-	public static void fileLines(InputStream stream, UnsafeConsumer<String, IOException> cons) throws IOException{
+	public static void fileLines(@NotNull InputStream stream, @NotNull UnsafeConsumer<String, IOException> cons) throws IOException{
 		BufferedReader b=new BufferedReader(new InputStreamReader(stream, "ISO-8859-1"));
 		
 		for(String line;(line=b.readLine())!=null;){
@@ -287,22 +303,21 @@ public class UtilL{
 		
 	}
 	
-	public static <T> void forEach(T[] ts, Consumer<T> consumer){
+	public static <T> void forEach(@NotNull T[] ts, @NotNull Consumer<T> consumer){
 		for(T t : ts) consumer.accept(t);
 	}
 	
-	public static void sleepWhile(BooleanSupplier checkWhile){
+	public static void sleepWhile(@NotNull BooleanSupplier checkWhile){
 		sleepWhile(checkWhile, 1);
 	}
 	
-	public static void sleepWhile(BooleanSupplier checkWhile, long ms){
+	public static void sleepWhile(@NotNull BooleanSupplier checkWhile, long ms){
 		while(checkWhile.getAsBoolean()) sleep(ms);
 	}
 	
-	public static void sleepWhile(BooleanSupplier checkWhile, long ms, int ns){
+	public static void sleepWhile(@NotNull BooleanSupplier checkWhile, long ms, int ns){
 		while(checkWhile.getAsBoolean()) sleep(ms, ns);
 	}
-	
 	
 	public static class InputStreamSilent extends InputStream{
 		
@@ -323,12 +338,12 @@ public class UtilL{
 		}
 		
 		@Override
-		public int read(byte b[]) throws IOException{
+		public int read(@NotNull byte b[]) throws IOException{
 			return parent.read(b);
 		}
 		
 		@Override
-		public int read(byte[] b, int off, int len) throws IOException{
+		public int read(@NotNull byte[] b, int off, int len) throws IOException{
 			return parent.read(b, off, len);
 		}
 		
@@ -367,49 +382,52 @@ public class UtilL{
 		return new InputStreamSilent(resource);
 	}
 	
-	public static String before(String toSubstring, char marker){
+	public static String before(@NotNull String toSubstring, char marker){
 		int pos=toSubstring.lastIndexOf(marker);
 		if(pos==-1) return null;
 		return toSubstring.substring(0, pos);
 	}
 	
-	public static String after(String toSubstring, char marker){
+	public static String after(@NotNull String toSubstring, char marker){
 		int pos=toSubstring.lastIndexOf(marker);
 		if(pos==-1) return null;
 		return toSubstring.substring(pos+1);
 	}
 	
-	public static <T extends Throwable> RuntimeException uncheckedThrow(Throwable throwable) throws T {
-		throw (T) throwable;
+	@NotNull
+	@SuppressWarnings("unchecked")
+	public static <T extends Throwable> RuntimeException uncheckedThrow(Throwable throwable) throws T{
+		throw (T)throwable;
 	}
 	
-	public static <T> Stream<T> stream(Iterable<T> it){
+	public static <T> Stream<T> stream(@NotNull Iterable<T> it){
 		return stream(it, false);
 	}
 	
-	public static <T> Stream<T> stream(Iterable<T> it, boolean parallel){
+	public static <T> Stream<T> stream(@NotNull Iterable<T> it, boolean parallel){
 		return StreamSupport.stream(it.spliterator(), false);
 	}
 	
-	public static <T> Stream<T> stream(Iterator<T> it){
+	public static <T> Stream<T> stream(@NotNull Iterator<T> it){
 		return stream(it, false);
 	}
 	
-	public static <T> Stream<T> stream(Iterator<T> it, boolean parallel){
+	public static <T> Stream<T> stream(@NotNull Iterator<T> it, boolean parallel){
 		return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.NONNULL), parallel);
 	}
 	
-	public static <In, Out> Out[] convert(Collection<In> in, Class<Out> outType, Function<In, Out> converter){
-		Out[]        out =array(outType, in.size());
-		int          i   =0;
-		Iterator<In> iter=in.iterator();
-		while(iter.hasNext()){
-			out[i++]=converter.apply(iter.next());
+	@NotNull
+	public static <In, Out> Out[] convert(@NotNull Collection<In> in, Class<Out> outType, @NotNull Function<In, Out> converter){
+		Out[] out=array(outType, in.size());
+		int   i  =0;
+		for(In anIn : in){
+			out[i++]=converter.apply(anIn);
 		}
 		return out;
 	}
 	
-	public static <Out> Out[] convert(int[] in, Class<Out> outType, IntFunction<Out> converter){
+	@NotNull
+	public static <Out> Out[] convert(@NotNull int[] in, Class<Out> outType, @NotNull IntFunction<Out> converter){
 		Out[] out=array(outType, in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
@@ -417,7 +435,8 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <In, Out> Out[] convert(In[] in, Class<Out> outType, Function<In, Out> converter){
+	@NotNull
+	public static <In, Out> Out[] convert(@NotNull In[] in, Class<Out> outType, @NotNull Function<In, Out> converter){
 		Out[] out=array(outType, in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
@@ -425,7 +444,7 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <In, Out> Out[] convert(In[] in, IntFunction<Out[]> array, Function<In, Out> converter){
+	public static <In, Out> Out[] convert(@NotNull In[] in, @NotNull IntFunction<Out[]> array, @NotNull Function<In, Out> converter){
 		Out[] out=array.apply(in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
@@ -433,7 +452,7 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <Out> Out[] convert(int[] in, IntFunction<Out[]> array, IntFunction<Out> converter){
+	public static <Out> Out[] convert(@NotNull int[] in, @NotNull IntFunction<Out[]> array, @NotNull IntFunction<Out> converter){
 		Out[] out=array.apply(in.length);
 		for(int i=0;i<in.length;i++){
 			out[i]=converter.apply(in[i]);
@@ -441,7 +460,7 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <T> boolean contains(T[] array, T what){
+	public static <T> boolean contains(@NotNull T[] array, @Nullable T what){
 		if(what==null){
 			for(T t : array){
 				if(t==null) return true;
@@ -454,24 +473,25 @@ public class UtilL{
 		return false;
 	}
 	
-	public static int indexOf(int[] array, int what){
+	public static int indexOf(@NotNull int[] array, int what){
 		return indexOf(array, 0, what);
 	}
 	
-	public static int indexOf(int[] array, int start, int what){
+	public static int indexOf(@NotNull int[] array, int start, int what){
 		for(;start<array.length;start++){
 			if(array[start]==what) return start;
 		}
 		return -1;
 	}
 	
-	public static boolean contains(int[] array, int what){
+	public static boolean contains(@NotNull int[] array, int what){
 		for(int t : array){
 			if(t==what) return true;
 		}
 		return false;
 	}
 	
+	@NotNull
 	public static <T extends Throwable> RuntimeException exitWithErrorMsg(Object... msg) throws T{
 		String msg0=TextUtil.toString(msg);
 		LogUtil.printlnEr(msg0);
@@ -479,16 +499,19 @@ public class UtilL{
 		return new RuntimeException(msg0);
 	}
 	
+	@NotNull
 	public static byte[] longToBytes(long l){
 		byte[] dest=new byte[8];
 		return longToBytes(dest, l);
 	}
 	
-	public static byte[] longToBytes(byte[] dest, long l){
+	@NotNull
+	public static byte[] longToBytes(@NotNull byte[] dest, long l){
 		return longToBytes(dest, 0, l);
 	}
 	
-	public static byte[] longToBytes(byte[] dest, int destStart, long l){
+	@NotNull
+	public static byte[] longToBytes(@NotNull byte[] dest, int destStart, long l){
 		for(int i=7;i>=0;i--){
 			dest[destStart+i]=(byte)(l&0xFF);
 			l>>=8;
@@ -496,11 +519,11 @@ public class UtilL{
 		return dest;
 	}
 	
-	public static long bytesToLong(byte[] b){
+	public static long bytesToLong(@NotNull byte[] b){
 		return bytesToLong(0, b);
 	}
 	
-	public static long bytesToLong(int start, byte[] b){
+	public static long bytesToLong(int start, @NotNull byte[] b){
 		long result=0;
 		for(int i=0;i<8;i++){
 			result<<=8;
@@ -509,7 +532,8 @@ public class UtilL{
 		return result;
 	}
 	
-	public static <In1, In2, Out> List<Out> combine(List<In1> in1, List<In2> in2, BiFunction<In1, In2, Out> converter){
+	@NotNull
+	public static <In1, In2, Out> List<Out> combine(@NotNull List<In1> in1, @NotNull List<In2> in2, @NotNull BiFunction<In1, In2, Out> converter){
 		int       size=Math.min(in1.size(), in2.size());
 		List<Out> out =new ArrayList<>(size);
 		for(int i=0;i<size;i++){
@@ -518,7 +542,8 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <In1, In2, Out> Out[] combine(In1[] in1, In2[] in2, IntFunction<Out[]> array, BiFunction<In1, In2, Out> converter){
+	@NotNull
+	public static <In1, In2, Out> Out[] combine(@NotNull In1[] in1, @NotNull In2[] in2, @NotNull IntFunction<Out[]> array, @NotNull BiFunction<In1, In2, Out> converter){
 		int   size=Math.min(in1.length, in2.length);
 		Out[] out =array.apply(size);
 		for(int i=0;i<size;i++){
@@ -527,7 +552,9 @@ public class UtilL{
 		return out;
 	}
 	
-	public static <T> T[] concatenate(T[] a, T[] b){
+	@NotNull
+	@SuppressWarnings("unchecked")
+	public static <T> T[] concatenate(@NotNull T[] a, @NotNull T[] b){
 		int aLen=a.length;
 		int bLen=b.length;
 		
@@ -539,7 +566,7 @@ public class UtilL{
 	}
 	
 	
-	public static void parallelFor(int[] array, int threads, IntIntConsumer consumer){
+	public static void parallelFor(@NotNull int[] array, int threads, @NotNull IntIntConsumer consumer){
 		if(threads<=1){
 			for(int i=0;i<array.length;i++){
 				consumer.accept(i, array[i]);
@@ -555,4 +582,67 @@ public class UtilL{
 		});
 	}
 	
+	
+	public static boolean checkFlag(byte flags, byte flag){
+		return (flags&flag)==flag;
+	}
+	
+	public static boolean checkFlag(short flags, short flag){
+		return (flags&flag)==flag;
+	}
+	
+	public static boolean checkFlag(int flags, int flag){
+		return (flags&flag)==flag;
+	}
+	
+	public static boolean checkFlag(long flags, long flag){
+		return (flags&flag)==flag;
+	}
+	
+	@NotNull
+	public static UUID hashMD5(@NotNull ByteBuffer input){
+		try{
+			MessageDigest md5=MessageDigest.getInstance("MD5");
+			md5.update(input);
+			return UUID.nameUUIDFromBytes(md5.digest());
+		}catch(NoSuchAlgorithmException e){
+			throw uncheckedThrow(e);
+		}
+	}
+	
+	@NotNull
+	public static UUID hashMD5(byte[] input){
+		try{
+			MessageDigest md5=MessageDigest.getInstance("MD5");
+			return UUID.nameUUIDFromBytes(md5.digest(input));
+		}catch(NoSuchAlgorithmException e){
+			throw uncheckedThrow(e);
+		}
+	}
+	
+	@NotNull
+	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier){
+		return CompletableFuture.supplyAsync(supplier);
+	}
+	
+	@NotNull
+	public static <U> CompletableFuture<Void> async(@NotNull Runnable runnable){
+		return CompletableFuture.runAsync(runnable);
+	}
+	
+	public static <U> U await(@NotNull CompletableFuture<U> supplier){
+		return supplier.join();
+	}
+	
+	@NotNull
+	public static String getAppData(){
+		String path;
+		String OS=System.getProperty("os.name").toUpperCase();
+		if(OS.contains("WIN")) path=System.getenv("APPDATA");
+		else if(OS.contains("MAC")) path=System.getProperty("user.home")+"/Library/";
+		else if(OS.contains("NUX")) path=System.getProperty("user.home");
+		else path=System.getProperty("user.dir");
+		
+		return path+"/";
+	}
 }

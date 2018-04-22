@@ -1,5 +1,6 @@
 package com.lapissea.util.event.change;
 
+import com.lapissea.util.NotNull;
 import com.lapissea.util.event.LongEventRegistry;
 
 import java.util.Objects;
@@ -14,7 +15,7 @@ public class ChangeRegistryLong extends LongEventRegistry{
 		this.object=object;
 	}
 	
-	public ChangeRegistryLong(LongConsumer... listener){
+	public ChangeRegistryLong(@NotNull LongConsumer... listener){
 		for(LongConsumer l : listener){
 			register(l);
 		}
@@ -36,6 +37,7 @@ public class ChangeRegistryLong extends LongEventRegistry{
 		return object;
 	}
 	
+	@NotNull
 	@Override
 	public String toString(){
 		return getClass().getSimpleName()+"{val="+object+"}";

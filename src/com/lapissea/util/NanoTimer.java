@@ -3,6 +3,7 @@ package com.lapissea.util;
 public class NanoTimer{
 	
 	private long start;
+	@NotNull
 	private long[] data=new long[100];
 	private int pos=99, count;
 	private boolean started=false;

@@ -14,7 +14,7 @@ public final class ObjectSize{
 	@Retention(RetentionPolicy.RUNTIME)
 	public @interface Getter{}
 	
-	public static int sizeof(Object[] obj){
+	public static int sizeof(@Nullable Object[] obj){
 		if(obj==null) return 0;
 		int size=0;
 		for(Object o : obj){
@@ -31,7 +31,7 @@ public final class ObjectSize{
 		}
 	}
 	
-	public static int sizeof(Class type){
+	public static int sizeof(@NotNull Class type){
 		if(type==boolean.class) return Byte.SIZE;
 		if(type==Boolean.class) return Byte.SIZE;
 		

@@ -16,6 +16,7 @@ public class StringTree<T>{
 	private class Part extends ArrayList<Part>{
 		protected String signature;
 		
+		@Nullable
 		T obj;
 		
 		Part(String signature, T val){
@@ -28,11 +29,12 @@ public class StringTree<T>{
 			this.signature=signature;
 		}
 		
-		boolean partMatch(String key, int pos){
+		boolean partMatch(@NotNull String key, int pos){
 			return key.regionMatches(pos, signature, 0, signature.length());
 		}
 		
-		Part find(String key, int pos){
+		@Nullable
+		Part find(@NotNull String key, int pos){
 			int partEnd=pos+signature.length();
 			
 			//nope key shorter than what the signature would require to match
@@ -64,7 +66,7 @@ public class StringTree<T>{
 			return null;
 		}
 		
-		int put(String key, int pos, T value){
+		int put(@NotNull String key, int pos, T value){
 			int partEnd=pos+signature.length();
 			
 			//nope key shorter than what the signature would require to match
@@ -89,7 +91,7 @@ public class StringTree<T>{
 			return childPut(key, partEnd, value);
 		}
 		
-		int childPut(String key, int end, T value){
+		int childPut(@NotNull String key, int end, T value){
 			
 			if(isEmpty()){
 				add(new Part(key.substring(end), value));
@@ -118,13 +120,14 @@ public class StringTree<T>{
 		}
 		
 		@Override
-		public boolean equals(Object o){
+		public boolean equals(@NotNull Object o){
 			if(o==this) return true;
 			if(!o.getClass().equals(Part.class)) return false;
 			Part p=(Part)o;
 			return p.signature.equals(o);
 		}
 		
+		@NotNull
 		@Override
 		public String toString(){
 			StringBuilder sb=new StringBuilder();
@@ -175,13 +178,13 @@ public class StringTree<T>{
 			sort(comparing(a->a.signature));
 		}
 		
-		void printSig(StringBuilder sb){
+		void printSig(@NotNull StringBuilder sb){
 			sb.append(signature);
 			if(obj!=null) sb.append("=").append(TextUtil.toString(obj));
 			sb.append(NEW_LINE);
 		}
 		
-		void displayTree(StringBuilder sb, int tabbing){
+		void displayTree(@NotNull StringBuilder sb, int tabbing){
 			for(int i=0;i<tabbing;i++){
 				sb.append(' ');
 			}
@@ -199,8 +202,9 @@ public class StringTree<T>{
 			super("");
 		}
 		
+		@Nullable
 		@Override
-		Part find(String key, int pos){
+		Part find(@NotNull String key, int pos){
 			if(key.isEmpty()) return this;
 			
 			for(Part child : this){
@@ -215,7 +219,7 @@ public class StringTree<T>{
 		}
 		
 		@Override
-		int put(String key, int pos, T value){
+		int put(@NotNull String key, int pos, T value){
 			if(key.isEmpty()){
 				obj=value;
 				return PUT_SUCCESS;
@@ -228,7 +232,7 @@ public class StringTree<T>{
 		}
 		
 		@Override
-		public void displayTree(StringBuilder sb, int tabbing){
+		public void displayTree(@NotNull StringBuilder sb, int tabbing){
 			if(obj==null){
 				for(Part child : this){
 					child.displayTree(sb, tabbing);
@@ -248,8 +252,10 @@ public class StringTree<T>{
 		}
 	}
 	
+	@NotNull
 	PartRoot root=new PartRoot();
 	
+	@Nullable
 	private LinkedList<Part> unoptimized;
 	
 	public StringTree(){
@@ -262,7 +268,8 @@ public class StringTree<T>{
 		root.obj=null;
 	}
 	
-	public T get(String key){
+	@Nullable
+	public T get(@NotNull String key){
 		optimize();
 		Part part=root.find(key, 0);
 		return part==null?null:part.obj;
@@ -272,6 +279,7 @@ public class StringTree<T>{
 		root.put(key, 0, value);
 	}
 	
+	@NotNull
 	public String displayTree(){
 		optimize();
 		StringBuilder sb=new StringBuilder();

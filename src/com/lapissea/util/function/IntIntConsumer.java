@@ -1,12 +1,15 @@
 package com.lapissea.util.function;
 
+import com.lapissea.util.NotNull;
+
 import java.util.Objects;
 
 public interface IntIntConsumer{
 	
 	void accept(int i, int value);
 	
-	default IntIntConsumer andThen(IntIntConsumer after){
+	@NotNull
+	default IntIntConsumer andThen(@NotNull IntIntConsumer after){
 		Objects.requireNonNull(after);
 		
 		return (l, r)->{

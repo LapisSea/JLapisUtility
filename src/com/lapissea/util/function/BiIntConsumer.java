@@ -1,5 +1,7 @@
 package com.lapissea.util.function;
 
+import com.lapissea.util.NotNull;
+
 import java.util.Objects;
 
 public interface BiIntConsumer<T>{
@@ -18,7 +20,8 @@ public interface BiIntConsumer<T>{
 	 * operation followed by the {@code after} operation
 	 * @throws NullPointerException if {@code after} is null
 	 */
-	default BiIntConsumer<T> andThen(BiIntConsumer<? super T> after){
+	@NotNull
+	default BiIntConsumer<T> andThen(@NotNull BiIntConsumer<? super T> after){
 		Objects.requireNonNull(after);
 		
 		return (l, r)->{

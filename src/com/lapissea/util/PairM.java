@@ -22,6 +22,7 @@ public class PairM<Obj1,Obj2>{
 		return ((PairM<?,?>)obj).obj1.equals(obj1)&&((PairM<?,?>)obj).obj2.equals(obj2);
 	}
 	
+	@NotNull
 	@Override
 	public String toString(){
 		return "DoubleObject["+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";

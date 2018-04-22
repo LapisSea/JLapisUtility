@@ -1,5 +1,7 @@
 package com.lapissea.util.function;
 
+import com.lapissea.util.NotNull;
+
 import java.util.Objects;
 
 public interface FloatConsumer{
@@ -18,7 +20,8 @@ public interface FloatConsumer{
 	 * operation followed by the {@code after} operation
 	 * @throws NullPointerException if {@code after} is null
 	 */
-	default FloatConsumer andThen(FloatConsumer after){
+	@NotNull
+	default FloatConsumer andThen(@NotNull FloatConsumer after){
 		Objects.requireNonNull(after);
 		return (t)->{ accept(t); after.accept(t); };
 	}

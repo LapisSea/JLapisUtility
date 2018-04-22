@@ -7,7 +7,7 @@ public class ArgumentParser{
 	
 	private final Map<String, Object> data=new HashMap<>();
 	
-	public ArgumentParser(String[] args){
+	public ArgumentParser(@NotNull String[] args){
 		for(String arg : args){
 			if(arg.startsWith("--")){
 				int pos=arg.indexOf("=");
@@ -16,25 +16,27 @@ public class ArgumentParser{
 		}
 	}
 	
-	public boolean hasValue(String key){
+	public boolean hasValue(@NotNull String key){
 		return data.containsKey(key);
 	}
 	
-	public String getString(String key){
+	@Nullable
+	public String getString(@NotNull String key){
 		return getString(key, null);
 	}
 	
-	public String getString(String key, String def){
+	@Nullable
+	public String getString(@NotNull String key, @Nullable String def){
 		Object o=data.get(key);
 		if(o==null) return def;
 		return o.toString();
 	}
 	
-	public int getInt(String key){
+	public int getInt(@NotNull String key){
 		return getInt(key, -1);
 	}
 	
-	public int getInt(String key, int def){
+	public int getInt(@NotNull String key, int def){
 		Object o=data.get(key);
 		if(o==null) return def;
 		if(o instanceof Integer) return (int)o;
@@ -42,11 +44,11 @@ public class ArgumentParser{
 		return (int)o;
 	}
 	
-	public boolean getBoolean(String key){
+	public boolean getBoolean(@NotNull String key){
 		return getBoolean(key, false);
 	}
 	
-	public boolean getBoolean(String key, boolean def){
+	public boolean getBoolean(@NotNull String key, boolean def){
 		Object o=data.get(key);
 		if(o==null) return def;
 		if(o instanceof Boolean) return (boolean)o;

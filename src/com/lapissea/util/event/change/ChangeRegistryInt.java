@@ -1,5 +1,6 @@
 package com.lapissea.util.event.change;
 
+import com.lapissea.util.NotNull;
 import com.lapissea.util.event.IntEventRegistry;
 
 import java.util.Objects;
@@ -14,7 +15,7 @@ public class ChangeRegistryInt extends IntEventRegistry{
 		this.object=object;
 	}
 	
-	public ChangeRegistryInt(IntConsumer... listener){
+	public ChangeRegistryInt(@NotNull IntConsumer... listener){
 		for(IntConsumer l : listener){
 			register(l);
 		}
@@ -36,6 +37,7 @@ public class ChangeRegistryInt extends IntEventRegistry{
 		return object;
 	}
 	
+	@NotNull
 	@Override
 	public String toString(){
 		return getClass().getSimpleName()+"{val="+object+"}";

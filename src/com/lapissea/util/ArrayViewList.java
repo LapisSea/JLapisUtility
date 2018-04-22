@@ -15,11 +15,13 @@ public class ArrayViewList<T> extends AbstractList<T>{
 		return new PairM<>(arr::setSource, arr);
 	}
 	
+	@NotNull
 	public static <T> ArrayViewList<T> create(Consumer<Consumer<T[]>> setterConsumer){
 		return create(null, setterConsumer);
 	}
 	
-	public static <T> ArrayViewList<T> create(T[] source, Consumer<Consumer<T[]>> setterConsumer){
+	@NotNull
+	public static <T> ArrayViewList<T> create(T[] source, @Nullable Consumer<Consumer<T[]>> setterConsumer){
 		ArrayViewList<T> arr=new ArrayViewList<>(source);
 		if(setterConsumer!=null) setterConsumer.accept(arr::setSource);
 		return arr;

@@ -15,7 +15,7 @@ public class TextUtil{
 	
 	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
 	
-	public static <T> void __REGISTER_CUSTOM_TO_STRING(Class<T> type, Function<T, String> funct){
+	public static <T> void __REGISTER_CUSTOM_TO_STRING(@NotNull Class<T> type, @NotNull Function<T, String> funct){
 		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object, String>)funct);
 	}
 	
@@ -64,7 +64,8 @@ public class TextUtil{
 		});
 	}
 	
-	public static String toStringArray(Object[] arr){
+	@NotNull
+	public static String toStringArray(@Nullable Object[] arr){
 		if(arr==null) return "null";
 		StringBuilder print=new StringBuilder("[");
 		
@@ -78,7 +79,8 @@ public class TextUtil{
 		return print.append("]").toString();
 	}
 	
-	private static String unknownArrayToString(Object arr){
+	@NotNull
+	private static String unknownArrayToString(@Nullable Object arr){
 		if(arr==null) return "null";
 		if(arr instanceof boolean[]) return Arrays.toString((boolean[])arr);
 		if(arr instanceof float[]) return Arrays.toString((float[])arr);
@@ -92,7 +94,8 @@ public class TextUtil{
 		return "ERR: "+arr;
 	}
 	
-	public static String toString(Object... objs){
+	@NotNull
+	public static String toString(@Nullable Object... objs){
 		if(objs==null) return "null";
 		StringBuilder print=new StringBuilder();
 		
@@ -106,7 +109,8 @@ public class TextUtil{
 		return print.toString();
 	}
 	
-	public static String toString(Object obj){
+	@NotNull
+	public static String toString(@Nullable Object obj){
 		if(obj==null) return "null";
 		
 		StringBuilder print=new StringBuilder();
@@ -129,11 +133,12 @@ public class TextUtil{
 		return print.toString();
 	}
 	
-	public static String plural(String word, int count){
+	@NotNull
+	public static String plural(@NotNull String word, int count){
 		return count==1?word:plural(word);
 	}
 	
-	public static String plural(String word){
+	public static String plural(@NotNull String word){
 		switch(word.charAt(word.length()-1)){
 		case 's':
 		case 'x':
@@ -150,6 +155,7 @@ public class TextUtil{
 		}
 	}
 	
+	@NotNull
 	public static String stringFill(int length, char c){
 		char[] ch=new char[length];
 		Arrays.fill(ch, c);
@@ -160,7 +166,7 @@ public class TextUtil{
 		return wrappedString(toString(obj).split("\n"));
 	}
 	
-	public static String wrappedString(String... lines){
+	public static String wrappedString(@Nullable String... lines){
 		if(lines==null||lines.length==0) return "";
 		
 		StringBuilder result =new StringBuilder();
@@ -198,7 +204,8 @@ public class TextUtil{
 		return result.toString();
 	}
 	
-	public static List<String> wrapLongString(String str, int width){
+	@NotNull
+	public static List<String> wrapLongString(@NotNull String str, int width){
 		List<String>  result=new ArrayList<>(2);
 		StringBuilder line  =new StringBuilder();
 		
@@ -241,7 +248,7 @@ public class TextUtil{
 		return result;
 	}
 	
-	public static String join(Collection<?> data, String s){
+	public static String join(@NotNull Collection<?> data, String s){
 		Iterator<?> i=data.iterator();
 		if(!i.hasNext()) return "";
 		
@@ -254,7 +261,8 @@ public class TextUtil{
 		}
 	}
 	
-	public static String firstToLoverCase(String string){
+	@Nullable
+	public static String firstToLoverCase(@Nullable String string){
 		if(string==null||string.isEmpty()) return string;
 		
 		char c[]=string.toCharArray();
@@ -262,7 +270,8 @@ public class TextUtil{
 		return new String(c);
 	}
 	
-	public static String firstToUpperCase(String string){
+	@Nullable
+	public static String firstToUpperCase(@Nullable String string){
 		if(string==null||string.isEmpty()) return string;
 		
 		char c[]=string.toCharArray();
@@ -272,7 +281,7 @@ public class TextUtil{
 	
 	private static final char[] HEX_ARRAY="0123456789ABCDEF".toCharArray();
 	
-	public static String bytesToHex(byte[] bytes){
+	public static String bytesToHex(@NotNull byte[] bytes){
 		char[] hexChars=new char[bytes.length*2];
 		for(int j=0;j<bytes.length;j++){
 			int v=bytes[j]&0xFF;
@@ -282,7 +291,8 @@ public class TextUtil{
 		return new String(hexChars);
 	}
 	
-	public static byte[] hexStringToByteArray(String s){
+	@NotNull
+	public static byte[] hexStringToByteArray(@NotNull String s){
 		int    len =s.length();
 		byte[] data=new byte[len/2];
 		for(int i=0;i<len;i+=2){

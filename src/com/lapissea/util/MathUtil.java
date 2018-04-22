@@ -25,7 +25,7 @@ public class MathUtil{
 		return value;
 	}
 	
-	public static int snapToArray(int value, Object[] arr){
+	public static int snapToArray(int value, @NotNull Object[] arr){
 		return snap(value, 0, arr.length-1);
 	}
 	
