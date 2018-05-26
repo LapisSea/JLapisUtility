@@ -4,8 +4,6 @@ import com.lapissea.util.NotNull;
 import com.lapissea.util.event.BoolEventRegistry;
 import com.lapissea.util.function.BooleanConsumer;
 
-import java.util.Objects;
-
 public class ChangeRegistryBool extends BoolEventRegistry{
 	
 	private boolean object;
@@ -28,9 +26,9 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 	}
 	
 	public void set(boolean object){
-		if(Objects.equals(this.object, object)) return;
-		dispatch(object);
+		if(this.object==object) return;
 		this.object=object;
+		dispatch(object);
 	}
 	
 	public boolean get(){

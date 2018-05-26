@@ -1,10 +1,10 @@
 package com.lapissea.util;
 
-import java.util.Random;
+import java.util.SplittableRandom;
 
 public class Rand{
 	
-	private static final Random RAND=new Random();
+	private static final SplittableRandom RAND=new SplittableRandom();
 	
 	
 	public static boolean b(){
@@ -35,7 +35,7 @@ public class Rand{
 	
 	
 	public static float f(){
-		return RAND.nextFloat();
+		return (RAND.nextInt()>>>8)*0x1.0p-24F;
 	}
 	
 	public static float f(float scale){

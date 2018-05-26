@@ -1,9 +1,6 @@
 package com.lapissea.util;
 
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-import java.nio.LongBuffer;
+import java.nio.*;
 import java.util.*;
 import java.util.function.Function;
 
@@ -42,6 +39,7 @@ public class TextUtil{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i)&0xFF);
+				
 				if(++i<buffer.limit()) print.append(", ");
 			}
 			print.append(']');
@@ -49,6 +47,15 @@ public class TextUtil{
 		});
 		__REGISTER_CUSTOM_TO_STRING(LongBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("LongBuffer[");
+			for(int i=0;i<buffer.limit();){
+				print.append(buffer.get(i));
+				if(++i<buffer.limit()) print.append(", ");
+			}
+			print.append(']');
+			return print.toString();
+		});
+		__REGISTER_CUSTOM_TO_STRING(ShortBuffer.class, buffer->{
+			StringBuilder print=new StringBuilder("ShortBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
 				if(++i<buffer.limit()) print.append(", ");

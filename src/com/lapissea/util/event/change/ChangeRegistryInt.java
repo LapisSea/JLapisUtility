@@ -3,7 +3,6 @@ package com.lapissea.util.event.change;
 import com.lapissea.util.NotNull;
 import com.lapissea.util.event.IntEventRegistry;
 
-import java.util.Objects;
 import java.util.function.IntConsumer;
 
 public class ChangeRegistryInt extends IntEventRegistry{
@@ -28,9 +27,9 @@ public class ChangeRegistryInt extends IntEventRegistry{
 	}
 	
 	public void set(int object){
-		if(Objects.equals(this.object, object)) return;
-		dispatch(object);
+		if(this.object==object) return;
 		this.object=object;
+		dispatch(object);
 	}
 	
 	public int get(){

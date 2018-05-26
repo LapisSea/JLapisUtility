@@ -3,7 +3,6 @@ package com.lapissea.util.event.change;
 import com.lapissea.util.NotNull;
 import com.lapissea.util.event.LongEventRegistry;
 
-import java.util.Objects;
 import java.util.function.LongConsumer;
 
 public class ChangeRegistryLong extends LongEventRegistry{
@@ -28,9 +27,9 @@ public class ChangeRegistryLong extends LongEventRegistry{
 	}
 	
 	public void set(long object){
-		if(Objects.equals(this.object, object)) return;
-		dispatch(object);
+		if(this.object==object) return;
 		this.object=object;
+		dispatch(object);
 	}
 	
 	public long get(){

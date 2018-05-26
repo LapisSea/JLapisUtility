@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.*;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -231,7 +230,7 @@ public class UtilL{
 	}
 	
 	public static boolean isCompressed(final byte[] compressed){
-		return compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC>>8);
+		return compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC >> 8);
 	}
 	
 	@NotNull
@@ -512,9 +511,9 @@ public class UtilL{
 	
 	@NotNull
 	public static byte[] longToBytes(@NotNull byte[] dest, int destStart, long l){
-		for(int i=7;i>=0;i--){
+		for(int i=7;i >= 0;i--){
 			dest[destStart+i]=(byte)(l&0xFF);
-			l>>=8;
+			l >>= 8;
 		}
 		return dest;
 	}
@@ -611,27 +610,18 @@ public class UtilL{
 	}
 	
 	@NotNull
-	public static UUID hashMD5(byte[] input){
+	public static UUID hashMD5(@NotNull String input){
+		return hashMD5(input.getBytes());
+	}
+	
+	@NotNull
+	public static UUID hashMD5(@NotNull byte[] input){
 		try{
 			MessageDigest md5=MessageDigest.getInstance("MD5");
 			return UUID.nameUUIDFromBytes(md5.digest(input));
 		}catch(NoSuchAlgorithmException e){
 			throw uncheckedThrow(e);
 		}
-	}
-	
-	@NotNull
-	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier){
-		return CompletableFuture.supplyAsync(supplier);
-	}
-	
-	@NotNull
-	public static <U> CompletableFuture<Void> async(@NotNull Runnable runnable){
-		return CompletableFuture.runAsync(runnable);
-	}
-	
-	public static <U> U await(@NotNull CompletableFuture<U> supplier){
-		return supplier.join();
 	}
 	
 	@NotNull
@@ -645,4 +635,26 @@ public class UtilL{
 		
 		return path+"/";
 	}
+	
+	public static <T> T any(T t1, T t2){
+		return t1!=null?t1:t2;
+	}
+	
+	@NotNull
+	public static String fileExtension(@NotNull String fileName){
+		int i=fileName.lastIndexOf('.');
+		int p=Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+		if(i>p) return fileName.substring(i+1);
+		return "";
+	}
+	
+	public static int bytesToInt(byte[] bytes, int offset){
+		int ret=0;
+		for(int i=0;i<4&&i+offset<bytes.length;i++){
+			ret<<=8;
+			ret|=(int)bytes[i]&0xFF;
+		}
+		return ret;
+	}
+	
 }

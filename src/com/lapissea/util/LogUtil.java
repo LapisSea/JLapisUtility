@@ -2,6 +2,10 @@ package com.lapissea.util;
 
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -236,14 +240,17 @@ public class LogUtil{
 		private static final class DebugHeaderStream extends OutputStream{
 			
 			@Nullable
-			private final OutputStream child;
+			private final OutputStream  child;
 			@NotNull
-			private final byte[]       prefix;
+			private final byte[]        prefix;
+			private       byte[]        data;
 			private final StringBuilder lineBuild  =new StringBuilder();
 			private       boolean       needsHeader=true;
 			
 			private final FileOutputStream                    fileCsvOut;
 			private final Function<StackTraceElement, String> header;
+			
+			private final CharsetDecoder decoder=StandardCharsets.UTF_8.newDecoder();
 			
 			public DebugHeaderStream(OutputStream child, @NotNull String prefix, @Nullable FileOutputStream fileRawOut, FileOutputStream fileCsvOut, Function<StackTraceElement, String> header){
 				this.header=header;
@@ -261,18 +268,30 @@ public class LogUtil{
 					try{
 						debugHeader();
 					}catch(Exception e){
-						Init.detach();
-						System.setErr(ERR);
+						detach();
 						e.printStackTrace();
 						System.exit(0);
 					}
 				}
-				for(byte b : lineBuild.toString().getBytes()){
-					if(b=='\n') needsHeader=true;
-					child.write(b);
+				
+				byte[] data=lineBuild.toString().getBytes();
+				try{
+					for(char b : decoder.decode(ByteBuffer.wrap(data)).array()){
+						put(b);
+					}
+				}catch(CharacterCodingException e){
+					for(byte b : data){
+						put(b);
+					}
 				}
+				
 				lineBuild.setLength(0);
 				child.flush();
+			}
+			
+			private void put(int b) throws IOException{
+				if(b=='\n') needsHeader=true;
+				child.write(b);
 			}
 			
 			@Override
@@ -281,7 +300,10 @@ public class LogUtil{
 				
 				if(b=='\n'){
 					lineBuild.append(System.lineSeparator());
-				}else lineBuild.append((char)b);
+				}else{
+					
+					lineBuild.append((char)b);
+				}
 				
 				if(fileCsvOut!=null){
 					if(b=='"') fileCsvOut.write("\"\"".getBytes());
@@ -312,7 +334,7 @@ public class LogUtil{
 				      !(name.startsWith("java.util")&&trace[depth].getMethodName().equals("forEach"))) ;
 				depth++;
 				
-				if(depth<0||depth>=trace.length) return null;
+				if(depth<0||depth >= trace.length) return null;
 				return trace[depth];
 			}
 			
@@ -459,8 +481,8 @@ public class LogUtil{
 		StringBuilder line=new StringBuilder();
 		
 		StackTraceElement[] trace=Thread.currentThread().getStackTrace();
-		if(count>=trace.length) count=trace.length-1;
-		for(int i=count+1;i>=2;i--){
+		if(count >= trace.length) count=trace.length-1;
+		for(int i=count+1;i >= 2;i--){
 			line.append(trace[i].getMethodName()).append('(').append(trace[i].getLineNumber()).append(')');
 			if(i!=2) line.append(splitter);
 		}
