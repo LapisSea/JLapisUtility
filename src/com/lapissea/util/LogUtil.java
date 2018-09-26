@@ -7,12 +7,10 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.stream.Collectors;
 
 import static com.lapissea.util.UtilL.*;
 
@@ -239,7 +237,6 @@ public class LogUtil{
 		
 		private static final class DebugHeaderStream extends OutputStream{
 			
-			@Nullable
 			private final OutputStream  child;
 			@NotNull
 			private final byte[]        prefix;
@@ -262,31 +259,41 @@ public class LogUtil{
 			
 			@Override
 			public void flush() throws IOException{
-				if(needsHeader){
-					needsHeader=false;
-					
-					try{
-						debugHeader();
-					}catch(Exception e){
-						detach();
-						e.printStackTrace();
-						System.exit(0);
-					}
-				}
+				header();
 				
 				byte[] data=lineBuild.toString().getBytes();
 				try{
 					for(char b : decoder.decode(ByteBuffer.wrap(data)).array()){
+						header();
 						put(b);
 					}
 				}catch(CharacterCodingException e){
 					for(byte b : data){
+						header();
 						put(b);
 					}
 				}
 				
 				lineBuild.setLength(0);
 				child.flush();
+				
+				TABLE_LAST_FLAG=TABLE_FLAG;
+				if(TABLE_FLAG) TABLE_FLAG=false;
+				else TABLE_COLUMNS.clear();
+				
+			}
+			
+			private void header() throws IOException{
+				if(!needsHeader) return;
+				needsHeader=false;
+				
+				try{
+					debugHeader();
+				}catch(Exception e){
+					detach();
+					e.printStackTrace();
+					System.exit(0);
+				}
 			}
 			
 			private void put(int b) throws IOException{
@@ -534,6 +541,123 @@ public class LogUtil{
 			result.append("_/\\_");
 		
 		printlnEr(result);
+	}
+	
+	//================================================
+	
+	private static class TableColumn{
+		final String name;
+		int width;
+		
+		public TableColumn(String name){
+			this.name=name;
+			this.width=name.length();
+		}
+		
+		void gibWidth(int w){
+			width=Math.max(width, w);
+		}
+		
+		@Override
+		public String toString(){
+			StringBuilder sb=new StringBuilder(width+2);
+			sb.append(' ').append(name);
+			for(int i=0;i<width-name.length();i++){
+				sb.append(' ');
+			}
+			sb.append(' ');
+			return sb.toString();
+		}
+	}
+	
+	private static final List<TableColumn> TABLE_COLUMNS  =new ArrayList<>(1);
+	private static       boolean           TABLE_FLAG     =false;
+	private static       boolean           TABLE_LAST_FLAG=false;
+	
+	public static void printTable(@NotNull Object... row){
+		synchronized(System.out){
+			Map<Object, Object> table=new HashMap<>();
+			for(int i=0, j=row.length/2;i<j;i++){
+				table.put(row[i*2], row[i*2+1]);
+			}
+			printTable(table);
+		}
+	}
+	
+	public static void printTable(@NotNull Object[] rowNames, @NotNull Object... rowValues){
+		synchronized(System.out){
+			assert rowNames.length==rowValues.length;
+			
+			Map<Object, Object> table=new HashMap<>();
+			for(int i=0, j=rowNames.length;i<j;i++){
+				table.put(rowNames[i], rowValues[i]);
+			}
+			printTable(table);
+		}
+	}
+	
+	public static void printTable(Map<?, ?> row){
+		synchronized(System.out){
+			Map<String, String> rowSafe=new HashMap<>(row.size());
+			
+			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\\n");
+			row.forEach((k, v)->rowSafe.put(toString.apply(k), toString.apply(v)));
+			
+			if(TABLE_COLUMNS.stream().noneMatch(s->rowSafe.containsKey(s.name))) TABLE_COLUMNS.clear();
+//			TABLE_COLUMNS.removeIf(c->!rowSafe.containsKey(c.name));
+			
+			rowSafe.forEach((k, v)->{
+				TABLE_COLUMNS.stream()
+				             .filter(c->c.name.equals(k))
+				             .findAny()
+				             .orElseGet(()->{
+					             TableColumn c=new TableColumn(k);
+					             TABLE_COLUMNS.add(c);
+					             TABLE_LAST_FLAG=false;
+					             return c;
+				             })
+				             .gibWidth(v.length());
+			});
+			
+			StringBuilder sb=new StringBuilder();
+			
+			if(!TABLE_LAST_FLAG){//first row
+				
+				String names=TABLE_COLUMNS.stream()
+				                          .map(Object::toString)
+				                          .collect(Collectors.joining("|"));
+				
+				StringBuilder lines=new StringBuilder(names.length()+3);
+				lines.append('|');
+				for(int i=0;i<names.length();i++){
+					lines.append('-');
+				}
+				lines.append("|\n");
+				
+				sb.append(lines);
+				sb.append("|").append(names).append("|\n");
+				sb.append(lines);
+				
+			}
+			
+			sb.append('|');
+			for(TableColumn column : TABLE_COLUMNS){
+				int    left=column.width;
+				String val =rowSafe.get(column.name);
+				sb.append(' ');
+				if(val!=null){
+					left-=val.length();
+					sb.append(val);
+				}
+				sb.append(' ');
+				while(left-->0) sb.append(' ');
+				sb.append('|');
+			}
+			sb.append('\n');
+			
+			TABLE_FLAG=true;
+			out(sb.toString());
+		}
 	}
 	
 	//================================================

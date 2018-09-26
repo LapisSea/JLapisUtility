@@ -1,6 +1,7 @@
 package com.lapissea.util;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.function.Supplier;
@@ -11,9 +12,16 @@ public class PoolOwnThread extends Thread{
 	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier){
 		
 		PoolOwnThread pool=get();
-		if(pool!=null) return CompletableFuture.supplyAsync(supplier, pool.getPool());
+		if(pool!=null) return async(supplier, pool.getPool());
 		
 		return CompletableFuture.supplyAsync(supplier);
+	}
+	
+	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier, Executor executor){
+		return CompletableFuture.supplyAsync(supplier, executor);
+	}
+	public static CompletableFuture<Void> async(@NotNull Runnable runnable, Executor executor){
+		return CompletableFuture.runAsync(runnable, executor);
 	}
 	
 	@NotNull
@@ -61,7 +69,7 @@ public class PoolOwnThread extends Thread{
 			ForkJoinWorkerThread worker=ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
 			worker.setName(name+"-w"+worker.getPoolIndex());
 			return worker;
-		}, null, true);
+		}, null, false);
 		
 	}
 	

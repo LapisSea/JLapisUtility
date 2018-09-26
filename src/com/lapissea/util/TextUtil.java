@@ -91,7 +91,19 @@ public class TextUtil{
 		if(arr==null) return "null";
 		if(arr instanceof boolean[]) return Arrays.toString((boolean[])arr);
 		if(arr instanceof float[]) return Arrays.toString((float[])arr);
-		if(arr instanceof byte[]) return Arrays.toString((byte[])arr);
+		if(arr instanceof byte[]){
+			byte[] ba=(byte[])arr;
+			
+			int iMax=ba.length-1;
+			
+			StringBuilder b=new StringBuilder();
+			b.append('[');
+			for(int i=0;;i++){
+				b.append(ba[i]&0xFF);
+				if(i==iMax) return b.append(']').toString();
+				b.append(", ");
+			}
+		}
 		if(arr instanceof int[]) return Arrays.toString((int[])arr);
 		if(arr instanceof long[]) return Arrays.toString((long[])arr);
 		if(arr instanceof short[]) return Arrays.toString((short[])arr);
@@ -220,7 +232,7 @@ public class TextUtil{
 		for(int i=0;i<str.length();i++){
 			char c=str.charAt(i);
 			
-			if(line.length()>=width){
+			if(line.length() >= width){
 				
 				int lastSpace=line.length()-1;
 				while(lastSpace>0&&Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
@@ -244,11 +256,10 @@ public class TextUtil{
 					}
 				}
 			}
-			line.append(c);
 			if(c=='\n'){
 				result.add(line.toString());
 				line.setLength(0);
-			}
+			}else line.append(c);
 		}
 		result.add(line.toString());
 		
@@ -292,7 +303,7 @@ public class TextUtil{
 		char[] hexChars=new char[bytes.length*2];
 		for(int j=0;j<bytes.length;j++){
 			int v=bytes[j]&0xFF;
-			hexChars[j*2]=HEX_ARRAY[v>>>4];
+			hexChars[j*2]=HEX_ARRAY[v >>> 4];
 			hexChars[j*2+1]=HEX_ARRAY[v&0x0F];
 		}
 		return new String(hexChars);

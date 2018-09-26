@@ -17,6 +17,9 @@ import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import static com.lapissea.util.UtilL.OS.*;
+import static java.nio.charset.StandardCharsets.*;
+
 public class UtilL{
 	
 	
@@ -36,9 +39,7 @@ public class UtilL{
 	public static void sleep(long millis){
 		try{
 			Thread.sleep(millis);
-		}catch(Exception e){
-			e.printStackTrace();
-		}
+		}catch(InterruptedException ignored){}
 	}
 	
 	public static void sleep(long millis, int nanos){
@@ -294,7 +295,7 @@ public class UtilL{
 	}
 	
 	public static void fileLines(@NotNull InputStream stream, @NotNull UnsafeConsumer<String, IOException> cons) throws IOException{
-		BufferedReader b=new BufferedReader(new InputStreamReader(stream, "ISO-8859-1"));
+		BufferedReader b=new BufferedReader(new InputStreamReader(stream, ISO_8859_1));
 		
 		for(String line;(line=b.readLine())!=null;){
 			cons.accept(line);
@@ -628,10 +629,16 @@ public class UtilL{
 	public static String getAppData(){
 		String path;
 		String OS=System.getProperty("os.name").toUpperCase();
-		if(OS.contains("WIN")) path=System.getenv("APPDATA");
-		else if(OS.contains("MAC")) path=System.getProperty("user.home")+"/Library/";
-		else if(OS.contains("NUX")) path=System.getProperty("user.home");
-		else path=System.getProperty("user.dir");
+		switch(getOS()){
+		case WINDOWS:
+			path=System.getenv("APPDATA"); break;
+		case LINUX:
+			path=System.getProperty("user.home"); break;
+		case MACOS:
+			path=System.getProperty("user.home")+"/Library/"; break;
+		default:
+			path=System.getProperty("user.dir"); break;
+		}
 		
 		return path+"/";
 	}
@@ -655,6 +662,66 @@ public class UtilL{
 			ret|=(int)bytes[i]&0xFF;
 		}
 		return ret;
+	}
+	
+	public enum OS{
+		WINDOWS("dll"), LINUX("so"), MACOS("jnilib");
+		
+		public final String nativeLibExtension;
+		
+		OS(String nativeLibExtension){this.nativeLibExtension=nativeLibExtension;}
+	}
+	
+	private static OS OS;
+	
+	public static synchronized OS getOS(){
+		if(OS==null){
+			String os=System.getProperty("os.name").toLowerCase();
+			
+			if(os.contains("win")) OS=WINDOWS;
+			else if(os.contains("linux")) OS=LINUX;
+			else if(os.contains("mac")) OS=MACOS;
+		}
+		return OS;
+	}
+	
+	public static boolean isInJar(Class<?> clazz){
+		return new File(clazz.getProtectionDomain().getCodeSource().getLocation().getPath()).getName().endsWith(".jar");
+	}
+	
+	public static <T extends Comparable<T>> int addRemainSorted(List<T> list, T value){
+		if(list.isEmpty()){
+			list.add(value);
+			return 0;
+		}
+		
+		if(value.compareTo(list.get(0))<0){
+			list.add(0,value);
+			return 0;
+		}
+		if(value.compareTo(list.get(list.size()-1))>0){
+			list.add(value);
+			return list.size();
+		}
+		
+		int lo=0;
+		int hi=list.size()-1;
+		
+		while(lo<=hi){
+			int mid=(hi+lo)/2;
+			
+			if(value.compareTo(list.get(mid))<0){
+				hi=mid-1;
+			}else if(value.compareTo(list.get(mid))>0){
+				lo=mid+1;
+			}else{
+				list.add(mid, value);
+				return mid;
+			}
+		}
+		
+		list.add(lo, value);
+		return lo;
 	}
 	
 }
