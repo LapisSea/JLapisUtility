@@ -588,7 +588,7 @@ public class LogUtil{
 		synchronized(System.out){
 			assert rowNames.length==rowValues.length;
 			
-			Map<Object, Object> table=new HashMap<>();
+			Map<Object, Object> table=new LinkedHashMap<>();
 			for(int i=0, j=rowNames.length;i<j;i++){
 				table.put(rowNames[i], rowValues[i]);
 			}
@@ -598,7 +598,7 @@ public class LogUtil{
 	
 	public static void printTable(Map<?, ?> row){
 		synchronized(System.out){
-			Map<String, String> rowSafe=new HashMap<>(row.size());
+			Map<String, String> rowSafe=new LinkedHashMap<>(row.size());
 			
 			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\\n");
 			row.forEach((k, v)->rowSafe.put(toString.apply(k), toString.apply(v)));
