@@ -2,6 +2,8 @@ package com.lapissea.util;
 
 
 import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
@@ -10,8 +12,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.lapissea.util.TextUtil.*;
 import static com.lapissea.util.UtilL.*;
 
 public class LogUtil{
@@ -19,7 +23,6 @@ public class LogUtil{
 	
 	@SuppressWarnings("PointlessBitwiseExpression")
 	public static class Init{
-		
 		
 		private Init(){}
 		
@@ -33,6 +36,19 @@ public class LogUtil{
 		
 		public static PrintStream OUT=System.out;
 		public static PrintStream ERR=System.err;
+		
+		static{
+			
+			Runtime.getRuntime().addShutdownHook(new Thread(()->{
+				synchronized(System.out){
+					synchronized(System.err){
+						detach();
+						System.out.flush();
+						System.err.flush();
+					}
+				}
+			}, LogUtil.class.getSimpleName()+"-Flush"));
+		}
 		
 		/**
 		 * @param flags Use or operator on defined fields to get a desired effect.
@@ -62,6 +78,7 @@ public class LogUtil{
 			Function<String, FileOutputStream> create=name->{
 				File f=new File(name).getAbsoluteFile();
 				try{
+					//noinspection ResultOfMethodCallIgnored
 					f.getParentFile().mkdirs();
 					return new FileOutputStream(f);
 				}catch(Exception e){
@@ -106,6 +123,28 @@ public class LogUtil{
 			
 		}
 		
+		private static final Pattern KOTLIN_COMPANION_ANNOTATION=Pattern.compile("\\$Proxy[0-9]+]");
+		
+		private static String filterClassName(String className){
+			
+			//check and remove companion class
+			String companionMarker="$Companion";
+			
+			String s=className.substring(0, className.indexOf(companionMarker)+companionMarker.length());
+			
+			if(s.endsWith(companionMarker)){
+				try{
+					Class comp=Class.forName(s);
+					if(Arrays.stream(comp.getAnnotations()).anyMatch(a->a.getClass().getSimpleName().contains("$Proxy"))){
+						s=s.substring(0, s.lastIndexOf(companionMarker));
+					}
+					return s;
+				}catch(ClassNotFoundException e){ }
+			}
+			
+			return className;
+		}
+		
 		private static Function<StackTraceElement, String> getHeader(int flags){
 			
 			boolean tabulated=checkFlag(flags, USE_TABULATED_HEADER);
@@ -135,10 +174,9 @@ public class LogUtil{
 					return stack->{
 						String methodName=stack.getMethodName();
 						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-						String className=stack.getClassName();
-						
-						String threadSt="["+Thread.currentThread().getName()+"] ";
-						String stackSt ="["+className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
+						String className=filterClassName(stack.getClassName());
+						String threadSt ="["+Thread.currentThread().getName()+"] ";
+						String stackSt  ="["+className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
 						
 						return threadSt+threadTab.getTab(threadSt.length())+stackSt+stackTab.getTab(stackSt.length())+": ";
 					};
@@ -168,7 +206,7 @@ public class LogUtil{
 					return stack->{
 						String methodName=stack.getMethodName();
 						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-						String className=stack.getClassName();
+						String className=filterClassName(stack.getClassName());
 						
 						String stackSt="["+className.substring(className.lastIndexOf('.')+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
 						
@@ -186,16 +224,19 @@ public class LogUtil{
 		}
 		
 		public static void detach(){
+			if(OUT==null) return;
 			System.setOut(OUT);
 			System.setErr(ERR);
+			OUT=null;
+			ERR=null;
 		}
 		
+		@SuppressWarnings({"AutoBoxing", "AutoUnboxing"})
 		private static final class Tabulator{
 			
 			private final List<PairM<Integer, Long>> sizeTimeTable=new ArrayList<>();
 			
 			public IntConsumer onGrow=i->{};
-			int     prevSize;
 			boolean tabulated;
 			
 			public Tabulator(boolean tabulated){
@@ -215,21 +256,29 @@ public class LogUtil{
 					if(p.obj2+1000<tim) i.remove();
 					else max=Math.max(max, p.obj1);
 				}
-				if(size>max) onGrow.accept(size-max);
+				if(size>max){
+					onGrow.accept(size-max);
+				}
 				
 				sizeTimeTable.add(new PairM<>(size, tim));
 				
-				return TextUtil.stringFill(Math.max(0, max-size), ' ');
+				int tabSize  =Math.max(0, max-size);
+				int totalSize=tabSize+size;
+				
+				return TextUtil.stringFill(tabSize, ' ');
 			}
 			
 			
 			public void reduce(int amount){
 				if(!tabulated) return;
+				String                         s=sizeTimeTable.toString();
 				Iterator<PairM<Integer, Long>> i=sizeTimeTable.iterator();
 				while(i.hasNext()){
 					PairM<Integer, Long> p=i.next();
 					p.obj1-=amount;
-					if(p.obj1<0) i.remove();
+					if(p.obj1<0){
+						i.remove();
+					}
 				}
 			}
 			
@@ -277,13 +326,18 @@ public class LogUtil{
 				lineBuild.setLength(0);
 				child.flush();
 				
+				String s=LogUtil.class.getClassLoader().getClass().toString();
+				
 				TABLE_LAST_FLAG=TABLE_FLAG;
-				if(TABLE_FLAG) TABLE_FLAG=false;
-				else TABLE_COLUMNS.clear();
+				if(TABLE_FLAG){
+					TABLE_FLAG=false;
+				}else{
+					TABLE_COLUMNS.clear();
+				}
 				
 			}
 			
-			private void header() throws IOException{
+			private void header(){
 				if(!needsHeader) return;
 				needsHeader=false;
 				
@@ -574,9 +628,134 @@ public class LogUtil{
 	private static       boolean           TABLE_FLAG     =false;
 	private static       boolean           TABLE_LAST_FLAG=false;
 	
+	private static boolean notKotlinData(Class c){
+		List<Method> functs   =new ArrayList<>(Arrays.asList(c.getDeclaredMethods()));
+		Field[]      fs       =c.getDeclaredFields();
+		int          compCount=(int)functs.stream().filter(m->m.getName().matches("component[0-9]+")).count();
+		
+		
+		if(fs.length!=compCount) return true;
+		
+		for(Field f : fs){
+			String n=f.getName();
+			if(!functs.removeIf(t->t.getName().equals("get"+TextUtil.firstToUpperCase(n)))) return true;
+		}
+		
+		return false;
+	}
+	
+	//returns null if object type is suboptimal
+	private static final List<Function<Object, LinkedHashMap<String, String>>> OBJECT_SCANNERS=Arrays.asList(
+		//kotlin object
+		row->{
+			Class<?> c=row.getClass();
+			if(notKotlinData(c)) return null;
+			
+			Field[]                       fs   =c.getDeclaredFields();
+			LinkedHashMap<String, String> table=new LinkedHashMap<>(fs.length);
+			for(Field f : fs){
+				f.setAccessible(true);
+				try{
+					table.put(f.getName(), TextUtil.toString(f.get(row)));
+				}catch(IllegalAccessException ignored){}
+			}
+			
+			return table;
+		},
+		//regular object
+		o->{
+			LinkedHashMap<String, String> data=new LinkedHashMap<>();
+			
+			mapObjectValues(o, (name, obj)->{
+				if(!JSON_NULL_PRINT&&obj==null) return;
+				data.put(name, TextUtil.toString(obj));
+			});
+			
+			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
+			
+			return data;
+		}
+	                                                                                                        );
+	
+	private static Map<String, String> objectToMap(Object row){
+		for(Function<Object, LinkedHashMap<String, String>> objectScanner : OBJECT_SCANNERS){
+			Map<String, String> mapped=objectScanner.apply(row);
+			if(mapped!=null) return mapped;
+		}
+		throw new RuntimeException();
+	}
+	
+	public static void printTable(Object row){
+		
+		Class c=row.getClass();
+		
+		if(c.isArray()){
+			printTable((Object[])row);
+			return;
+		}
+		
+		if(row instanceof Iterable){
+			List<Map<String, String>> collective=new ArrayList<>();
+			Set<String>               names     =new HashSet<>();
+			
+			for(Object r : ((Iterable)row)){
+				
+				Map<String, String> mapped=objectToMap(r);
+				names.addAll(mapped.keySet());
+				
+				collective.add(mapped);
+				
+				for(Map<String, String> ro : collective){
+					for(String name : names){
+						ro.putIfAbsent(name, "null");
+					}
+				}
+				
+				
+			}
+			
+			if(collective.size()>1){
+				int[] growthProtection=new int[names.size()];
+				
+				for(Map<String, String> r : collective){
+					Iterator<String> iter=r.values().iterator();
+					
+					for(int i=0;i<growthProtection.length;i++){
+						int len=iter.next().length();
+						if(growthProtection[i]<len){
+							growthProtection[i]=len;
+						}
+					}
+				}
+				
+				Iterator<Map.Entry<String, String>> iter=collective.get(0).entrySet().iterator();
+				
+				for(int max : growthProtection){
+					Map.Entry<String, String> e=iter.next();
+					
+					int len=e.getValue().length();
+					if(max>len){
+						e.setValue(e.getValue()+stringFill(max-len, ' '));
+					}
+				}
+			}
+			
+			for(Map<String, String> r : collective){
+				printTable(r);
+			}
+			return;
+		}
+		
+		printTable(objectToMap(row));
+		
+	}
+	
 	public static void printTable(@NotNull Object... row){
+		
 		synchronized(System.out){
-			Map<Object, Object> table=new HashMap<>();
+			if(row.length%2!=0) throw new IllegalArgumentException();
+			
+			Map<Object, Object> table=new LinkedHashMap<>();
 			for(int i=0, j=row.length/2;i<j;i++){
 				table.put(row[i*2], row[i*2+1]);
 			}
@@ -596,31 +775,92 @@ public class LogUtil{
 		}
 	}
 	
+	public static void printTable(String keyName, String valueName, Map<?, ?> data){
+		if(data.isEmpty()) return;
+		
+		List<String> keys =new ArrayList<>(data.size()), values=new ArrayList<>(data.size());
+		int[]        sizes={keyName.length(), valueName.length()};
+		
+		data.forEach((key, value)->{
+			String k, v;
+			keys.add(k=TextUtil.toString(key));
+			values.add(v=TextUtil.toString(value));
+			
+			ArrayL.max(sizes, 0, k.length(), v.length());
+		});
+		String k=keys.get(0);
+		if(k.length()<sizes[0]){
+			keys.set(0, k+TextUtil.stringFill(sizes[0]-k.length(), ' '));
+		}
+		String v=values.get(0);
+		if(v.length()<sizes[1]){
+			values.set(0, v+TextUtil.stringFill(sizes[1]-v.length(), ' '));
+		}
+		
+		Map<String, String> row=new LinkedHashMap<>(2);
+		
+		for(int i=0;i<data.size();i++){
+			row.put(keyName, keys.get(i));
+			row.put(valueName, values.get(i));
+			printTable(row);
+			row.clear();
+		}
+		
+	}
+	
 	public static void printTable(Map<?, ?> row){
 		synchronized(System.out){
 			Map<String, String> rowSafe=new LinkedHashMap<>(row.size());
 			
 			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\\n");
-			row.forEach((k, v)->rowSafe.put(toString.apply(k), toString.apply(v)));
-			
-			if(TABLE_COLUMNS.stream().noneMatch(s->rowSafe.containsKey(s.name))) TABLE_COLUMNS.clear();
-//			TABLE_COLUMNS.removeIf(c->!rowSafe.containsKey(c.name));
-			
-			rowSafe.forEach((k, v)->{
-				TABLE_COLUMNS.stream()
-				             .filter(c->c.name.equals(k))
-				             .findAny()
-				             .orElseGet(()->{
-					             TableColumn c=new TableColumn(k);
-					             TABLE_COLUMNS.add(c);
-					             TABLE_LAST_FLAG=false;
-					             return c;
-				             })
-				             .gibWidth(v.length());
+			row.forEach((k, v)->{
+				String val=toString.apply(v);
+				
+				//resolve tabs to local table space
+				if(val.indexOf('\t')!=-1){
+					
+					StringBuilder sb=new StringBuilder(val.length()+20);
+					
+					int pos=0;
+					for(char c : val.toCharArray()){
+						
+						if(c!='\t'){
+							sb.append(c);
+							pos++;
+							continue;
+						}
+						
+						int requiredPos=(pos/4+1)*4;
+						
+						while(pos<requiredPos){
+							sb.append(' ');
+							pos++;
+						}
+						
+					}
+					
+					val=sb.toString();
+				}
+				rowSafe.put(toString.apply(k), val);
 			});
 			
-			StringBuilder sb=new StringBuilder();
+			if(TABLE_COLUMNS.stream().noneMatch(s->rowSafe.containsKey(s.name))) TABLE_COLUMNS.clear();
 			
+			
+			rowSafe.forEach((k, v)->
+				                TABLE_COLUMNS
+					                .stream()
+					                .filter(c->c.name.equals(k))
+					                .findAny()
+					                .orElseGet(()->{
+						                TableColumn c=new TableColumn(k);
+						                TABLE_COLUMNS.add(c);
+						                TABLE_LAST_FLAG=false;
+						                return c;
+					                })
+					                .gibWidth(v.length()));
+			
+			StringBuilder sb=new StringBuilder();
 			if(!TABLE_LAST_FLAG){//first row
 				
 				String names=TABLE_COLUMNS.stream()
@@ -630,7 +870,7 @@ public class LogUtil{
 				StringBuilder lines=new StringBuilder(names.length()+3);
 				lines.append('|');
 				for(int i=0;i<names.length();i++){
-					lines.append('-');
+					lines.append('=');
 				}
 				lines.append("|\n");
 				

@@ -1,11 +1,17 @@
 package com.lapissea.util;
 
-public class PairM<Obj1,Obj2>{
+import java.util.Map;
+
+public class PairM<Obj1, Obj2>{
 	
-	public Obj1	obj1;
-	public Obj2	obj2;
+	public Obj1 obj1;
+	public Obj2 obj2;
 	
 	public PairM(){}
+	
+	public PairM(@NotNull Map.Entry<Obj1, Obj2> e){
+		this(e.getKey(), e.getValue());
+	}
 	
 	public PairM(Obj1 obj1, Obj2 obj2){
 		this.obj1=obj1;
@@ -19,13 +25,13 @@ public class PairM<Obj1,Obj2>{
 	@Override
 	public boolean equals(Object obj){
 		if(!(obj instanceof PairM)) return false;
-		return ((PairM<?,?>)obj).obj1.equals(obj1)&&((PairM<?,?>)obj).obj2.equals(obj2);
+		return ((PairM<?, ?>)obj).obj1.equals(obj1)&&((PairM<?, ?>)obj).obj2.equals(obj2);
 	}
 	
 	@NotNull
 	@Override
 	public String toString(){
-		return "DoubleObject["+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";
+		return getClass().getSimpleName()+"["+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";
 	}
 	
 	@Override
@@ -38,5 +44,9 @@ public class PairM<Obj1,Obj2>{
 	
 	public Obj1 get1(){
 		return obj1;
+	}
+	
+	public Obj2 get2(){
+		return obj2;
 	}
 }

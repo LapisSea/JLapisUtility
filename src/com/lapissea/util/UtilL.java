@@ -29,7 +29,8 @@ public class UtilL{
 	
 	
 	public static boolean isArray(@Nullable Object object){
-		return object!=null&&object.getClass().isArray();
+		if(object==null) return false;
+		return object instanceof Class?((Class)object).isArray():object.getClass().isArray();
 	}
 	
 	public static boolean TRUE(){
@@ -236,6 +237,9 @@ public class UtilL{
 	
 	@NotNull
 	public static Class<?> findClosestCommonSuper(@NotNull Class<?> a, @NotNull Class<?> b){
+		if(a==b) return a;
+		if(a==Object.class||b==Object.class) return Object.class;
+		
 		while(!a.isAssignableFrom(b))
 			a=a.getSuperclass();
 		return a;
@@ -270,7 +274,7 @@ public class UtilL{
 			buffer=new ByteArrayOutputStream();
 			
 			int    nRead;
-			byte[] data=new byte[16384];
+			byte[] data=new byte[1024];
 			
 			while((nRead=is.read(data, 0, data.length))!=-1){
 				buffer.write(data, 0, nRead);
@@ -427,6 +431,16 @@ public class UtilL{
 	}
 	
 	@NotNull
+	public static <In, Out> Out[] convert(@NotNull Collection<In> in, IntFunction<Out[]> newArray, @NotNull Function<In, Out> converter){
+		Out[] out=newArray.apply(in.size());
+		int   i  =0;
+		for(In anIn : in){
+			out[i++]=converter.apply(anIn);
+		}
+		return out;
+	}
+	
+	@NotNull
 	public static <Out> Out[] convert(@NotNull int[] in, Class<Out> outType, @NotNull IntFunction<Out> converter){
 		Out[] out=array(outType, in.length);
 		for(int i=0;i<in.length;i++){
@@ -450,6 +464,13 @@ public class UtilL{
 			out[i]=converter.apply(in[i]);
 		}
 		return out;
+	}
+	
+	public static <In, Out> Out[] convert(@NotNull In[] in, @NotNull Out[] dest, @NotNull Function<In, Out> converter){
+		for(int i=0;i<in.length;i++){
+			dest[i]=converter.apply(in[i]);
+		}
+		return dest;
 	}
 	
 	public static <Out> Out[] convert(@NotNull int[] in, @NotNull IntFunction<Out[]> array, @NotNull IntFunction<Out> converter){
@@ -659,7 +680,7 @@ public class UtilL{
 		int ret=0;
 		for(int i=0;i<4&&i+offset<bytes.length;i++){
 			ret<<=8;
-			ret|=(int)bytes[i]&0xFF;
+			ret|=(int)bytes[i+offset]&0xFF;
 		}
 		return ret;
 	}
@@ -686,7 +707,13 @@ public class UtilL{
 	}
 	
 	public static boolean isInJar(Class<?> clazz){
-		return new File(clazz.getProtectionDomain().getCodeSource().getLocation().getPath()).getName().endsWith(".jar");
+		return new File(clazz.getProtectionDomain()
+		                     .getCodeSource()
+		                     .getLocation()
+		                     .getPath()
+		)
+			       .getName()
+			       .endsWith(".jar");
 	}
 	
 	public static <T extends Comparable<T>> int addRemainSorted(List<T> list, T value){
@@ -696,7 +723,7 @@ public class UtilL{
 		}
 		
 		if(value.compareTo(list.get(0))<0){
-			list.add(0,value);
+			list.add(0, value);
 			return 0;
 		}
 		if(value.compareTo(list.get(list.size()-1))>0){
@@ -724,4 +751,26 @@ public class UtilL{
 		return lo;
 	}
 	
+	public static void Assert(boolean condition){
+		if(!condition) throw new AssertionError();
+	}
+	
+	public static void Assert(boolean condition, String message){
+		if(!condition) throw new AssertionError(message);
+	}
+	
+	public static RuntimeException sysExit(int exitCode) throws RuntimeException{
+		System.exit(0);
+		throw new RuntimeException();
+	}
+	
+	public static <K extends Enum<K>, V> EnumMap<K, V> generateEnumMap(@NotNull Class<K> enumType, @NotNull Function<K, V> generator){
+		EnumMap<K, V> map=new EnumMap<>(enumType);
+		
+		for(K k : enumType.getEnumConstants()){
+			map.put(k, generator.apply(k));
+		}
+		
+		return map;
+	}
 }

@@ -26,7 +26,7 @@ public class NativeUtils{
 	private static void loadLibrary0(String path, Supplier<InputStream> source){
 		try{
 			System.load(path);
-		}catch(UnsatisfiedLinkError e){
+		}catch(Throwable e){
 			try{
 				new File(path).getParentFile().mkdirs();
 				try(InputStream in=source.get()){

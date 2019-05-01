@@ -1,23 +1,38 @@
 package com.lapissea.util;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.*;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.lapissea.util.UtilL.*;
+import static java.lang.reflect.Modifier.*;
 
 public class TextUtil{
 	
-	public static final String NEW_LINE=System.lineSeparator();
+	public static final String  NEW_LINE       =System.lineSeparator();
+	public static       boolean JSON_NULL_PRINT=false;
 	
-	private static final Map<Class<Object>, Function<Object, String>> CUSTOM_TO_STRINGS=new HashMap<>();
+	private static final Map<Predicate<Class>, Function<Object, String>> CUSTOM_TO_STRINGS=new LinkedHashMap<>();
 	
-	public static <T> void __REGISTER_CUSTOM_TO_STRING(@NotNull Class<T> type, @NotNull Function<T, String> funct){
-		CUSTOM_TO_STRINGS.put((Class<Object>)type, (Function<Object, String>)funct);
+	public static <T> void registerCustomToString(@NotNull Class<T> type, @NotNull Function<T, String> funct){
+		registerCustomToString(t->t==type||instanceOf(t, type), funct);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> type, @NotNull Function<T, String> funct){
+		CUSTOM_TO_STRINGS.put((Predicate<Class>)((Object)type), (Function<Object, String>)funct);
 	}
 	
 	static{
-		__REGISTER_CUSTOM_TO_STRING(FloatBuffer.class, buffer->{
+		registerCustomToString(UtilL::isArray, TextUtil::unknownArrayToString);
+		
+		registerCustomToString(FloatBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -26,7 +41,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		__REGISTER_CUSTOM_TO_STRING(IntBuffer.class, buffer->{
+		registerCustomToString(IntBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("IntBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -35,7 +50,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		__REGISTER_CUSTOM_TO_STRING(ByteBuffer.class, buffer->{
+		registerCustomToString(ByteBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i)&0xFF);
@@ -45,7 +60,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		__REGISTER_CUSTOM_TO_STRING(LongBuffer.class, buffer->{
+		registerCustomToString(LongBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("LongBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -54,7 +69,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		__REGISTER_CUSTOM_TO_STRING(ShortBuffer.class, buffer->{
+		registerCustomToString(ShortBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ShortBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -63,11 +78,27 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		__REGISTER_CUSTOM_TO_STRING(LinkedList.class, list->{
+		registerCustomToString(LinkedList.class, list->{
 			StringBuilder print=new StringBuilder("[");
 			list.forEach(e->print.append(toString(e)));
 			print.append(']');
 			return print.toString();
+		});
+		registerCustomToString(Stream.class, stream->toString((Object)stream.toArray()));
+		registerCustomToString(AbstractCollection.class, col->{
+			Iterator<?> it=col.iterator();
+			if(!it.hasNext())
+				return "[]";
+			
+			StringBuilder sb=new StringBuilder();
+			sb.append('[');
+			for(;;){
+				Object e=it.next();
+				sb.append(e==col?"(this Collection)":TextUtil.toString(e));
+				if(!it.hasNext())
+					return sb.append(']').toString();
+				sb.append(',').append(' ');
+			}
 		});
 	}
 	
@@ -84,6 +115,52 @@ public class TextUtil{
 		}
 		
 		return print.append("]").toString();
+	}
+	
+	public static void mapObjectValues(@NotNull Object o, BiConsumer<String, Object> push){
+		Class c=o.getClass();
+		for(Method m : c.getMethods()){
+			if(m.getParameterCount()!=0) continue;
+			if(isPrivate(m.getModifiers())||isProtected(m.getModifiers())||isStatic(m.getModifiers())) continue;
+			if(m.getReturnType()==Void.TYPE) continue;
+			
+			String name=m.getName();
+			if(name.length()<=4) continue;
+			if(m.getDeclaringClass()==Object.class) continue;
+			
+			int prefix;
+			
+			if((m.getReturnType()==Boolean.class||m.getReturnType()==boolean.class)&&name.startsWith("is")){
+				prefix=2;
+			}else{
+				if(!name.startsWith("get")) continue;
+				prefix=3;
+			}
+			
+			char ch=name.charAt(prefix);
+			if(!Character.isAlphabetic(ch)||!Character.isUpperCase(ch)) continue;
+			name=firstToLoverCase(name.substring(prefix));
+			
+			
+			try{
+				m.setAccessible(true);
+				push.accept(name, m.invoke(o));
+			}catch(ReflectiveOperationException e){
+				e.printStackTrace();
+			}
+		}
+		
+		for(Field f : c.getFields()){
+			if(isPrivate(f.getModifiers())||isProtected(f.getModifiers())||isStatic(f.getModifiers())) continue;
+			String name=f.getName();
+			
+			try{
+				f.setAccessible(true);
+				push.accept(name, f.get(o));
+			}catch(ReflectiveOperationException e){
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	@NotNull
@@ -131,25 +208,69 @@ public class TextUtil{
 	@NotNull
 	public static String toString(@Nullable Object obj){
 		if(obj==null) return "null";
+		if(obj instanceof CharSequence) return obj.toString();
 		
-		StringBuilder print=new StringBuilder();
+		Class<?> type=obj.getClass();
 		
-		if(isArray(obj)) print.append(unknownArrayToString(obj));
-		else{
-			Class                    type=obj.getClass();
-			Function<Object, String> fun =CUSTOM_TO_STRINGS.get(type);
-			if(fun!=null) print.append(fun.apply(obj));
-			else{
-				print.append(CUSTOM_TO_STRINGS.entrySet()
-				                              .stream()
-				                              .filter(e->instanceOf(type, e.getKey()))
-				                              .findFirst()
-				                              .map(e->e.getValue().apply(obj))
-				                              .orElseGet(obj::toString));
-			}
+		return CUSTOM_TO_STRINGS.entrySet()
+		                        .stream()
+		                        .filter(e->e.getKey().test(type))
+		                        .findAny()
+		                        .map(Map.Entry::getValue)
+		                        .orElse(TextUtil::enhancedToString)
+		                        .apply(obj);
+	}
+	
+	private static final Map<Class, Boolean> CLASS_CACHE=new HashMap<>();
+	
+	public static String toNamedJson(Object o){
+		return _toNamedJson(o);
+	}
+	
+	private static final Stack<Object> JSON_CALL_STACK=new Stack<>();
+	
+	private static synchronized String _toNamedJson(Object o){
+		JSON_CALL_STACK.push(o);
+		try{
+			if(o==null) return "null";
+			if(o instanceof Number) return o.toString();
+			
+			Class c=o.getClass();
+			
+			if(c==Boolean.class) return o.toString();
+			
+			Map<String, String> data=new HashMap<>();
+			
+			mapObjectValues(o, (name, obj)->{
+				if(!JSON_NULL_PRINT&&obj==null) return;
+				if(JSON_CALL_STACK.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
+				data.put(name, toString(obj));
+			});
+			
+			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
+			
+			return c.getSimpleName()+"{"+data.entrySet().stream().map(Object::toString).collect(Collectors.joining(", "))+"}";
+			
+		}finally{
+			JSON_CALL_STACK.pop();
 		}
 		
-		return print.toString();
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static String enhancedToString(Object o){
+		if(o==null) return "null";
+		
+		boolean overridesToString=CLASS_CACHE.computeIfAbsent(o.getClass(), c->{
+			try{
+				return c.getMethod("toString").getDeclaringClass()!=Object.class;
+			}catch(NoSuchMethodException e){
+				return Boolean.TRUE;
+			}
+		});
+		
+		if(overridesToString) return o.toString();
+		return toNamedJson(o);
 	}
 	
 	@NotNull
@@ -182,7 +303,7 @@ public class TextUtil{
 	}
 	
 	public static String wrappedString(Object obj){
-		return wrappedString(toString(obj).split("\n"));
+		return wrappedString(splitByChar(toString(obj), '\n'));
 	}
 	
 	public static String wrappedString(@Nullable String... lines){
@@ -228,7 +349,6 @@ public class TextUtil{
 		List<String>  result=new ArrayList<>(2);
 		StringBuilder line  =new StringBuilder();
 		
-		
 		for(int i=0;i<str.length();i++){
 			char c=str.charAt(i);
 			
@@ -240,8 +360,8 @@ public class TextUtil{
 				
 				if(lastSpace!=0){
 					if(Character.isWhitespace(c)){
-						
-						if(line.length()-lastSpace>width) return wrapLongString(str, line.length()-lastSpace);
+						int possibleSplit=line.length()-lastSpace;
+						if(possibleSplit>width) return wrapLongString(str, possibleSplit);
 						
 						String lastWord=line.substring(lastSpace);
 						line.setLength(lastSpace);
@@ -261,7 +381,9 @@ public class TextUtil{
 				line.setLength(0);
 			}else line.append(c);
 		}
-		result.add(line.toString());
+		String lastLine=line.toString();
+		if(lastLine.length()>width) return wrapLongString(str, lastLine.length());
+		result.add(lastLine);
 		
 		return result;
 	}
@@ -283,7 +405,7 @@ public class TextUtil{
 	public static String firstToLoverCase(@Nullable String string){
 		if(string==null||string.isEmpty()) return string;
 		
-		char c[]=string.toCharArray();
+		char[] c=string.toCharArray();
 		c[0]=Character.toLowerCase(c[0]);
 		return new String(c);
 	}
@@ -292,7 +414,7 @@ public class TextUtil{
 	public static String firstToUpperCase(@Nullable String string){
 		if(string==null||string.isEmpty()) return string;
 		
-		char c[]=string.toCharArray();
+		char[] c=string.toCharArray();
 		c[0]=Character.toUpperCase(c[0]);
 		return new String(c);
 	}
@@ -318,4 +440,43 @@ public class TextUtil{
 		}
 		return data;
 	}
+	
+	@NotNull
+	public static String[] splitByChar(@NotNull String src, char toSplit){
+		return splitByChar(src, toSplit, 0, src.length());
+	}
+	
+	@NotNull
+	public static String[] splitByChar(@NotNull String src, char toSplit, int start){
+		return splitByChar(src, toSplit, start, src.length());
+	}
+	
+	@NotNull
+	public static String[] splitByChar(@NotNull String src, char toSplit, int start, int end){
+		
+		int count=1;
+		
+		for(int i=start;i<end;i++){
+			if(src.charAt(i)==toSplit) count++;
+		}
+		
+		String[] result=new String[count];
+		int      pos   =start;
+		
+		StringBuilder sb=new StringBuilder();
+		for(int i=0;i<count;i++){
+			
+			sb.setLength(0);
+			while(pos<end){
+				char c=src.charAt(pos++);
+				if(c==toSplit) break;
+				sb.append(c);
+			}
+			
+			result[i]=sb.toString();
+		}
+		
+		return result;
+	}
+	
 }
