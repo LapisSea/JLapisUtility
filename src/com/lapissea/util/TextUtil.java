@@ -5,34 +5,71 @@ import java.lang.reflect.Method;
 import java.nio.*;
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.*;
 
 import static com.lapissea.util.UtilL.*;
 import static java.lang.reflect.Modifier.*;
 
 public class TextUtil{
 	
+	public static final class CustomToString{
+		private final Map<Predicate<Class>, Function<Object, String>> overrides=new LinkedHashMap<>();
+		private final Function<Object, String>                        fallback;
+		
+		public CustomToString(Function<Object, String> fallback){
+			this.fallback=fallback;
+		}
+		
+		public <T> void register(@NotNull Class<T> type, @NotNull Function<T, String> funct){
+			register(t->t==type||instanceOf(t, type), funct);
+		}
+		
+		@SuppressWarnings("unchecked")
+		public <T> void register(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> funct){
+			overrides.put((Predicate<Class>)((Object)canStringify), (Function<Object, String>)funct);
+		}
+		
+		public String toString(Object obj){
+			if(obj==null) return "null";
+			
+			Class<?> type=obj.getClass();
+			
+			return overrides.entrySet()
+			                .stream()
+			                .filter(e->e.getKey().test(type))
+			                .findAny()
+			                .map(Map.Entry::getValue)
+			                .orElse(fallback)
+			                .apply(obj);
+		}
+	}
+	
 	public static final String  NEW_LINE       =System.lineSeparator();
 	public static       boolean JSON_NULL_PRINT=false;
 	
-	private static final Map<Predicate<Class>, Function<Object, String>> CUSTOM_TO_STRINGS=new LinkedHashMap<>();
+	public static final CustomToString CUSTOM_TO_STRINGS  =new CustomToString(TextUtil::enhancedToString);
+	public static final CustomToString IN_TABLE_TO_STRINGS=new CustomToString(CUSTOM_TO_STRINGS::toString);
 	
+	@Deprecated
 	public static <T> void registerCustomToString(@NotNull Class<T> type, @NotNull Function<T, String> funct){
-		registerCustomToString(t->t==type||instanceOf(t, type), funct);
+		CUSTOM_TO_STRINGS.register(type, funct);
 	}
 	
-	@SuppressWarnings("unchecked")
-	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> type, @NotNull Function<T, String> funct){
-		CUSTOM_TO_STRINGS.put((Predicate<Class>)((Object)type), (Function<Object, String>)funct);
+	@Deprecated
+	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> funct){
+		CUSTOM_TO_STRINGS.register(canStringify, funct);
 	}
 	
 	static{
-		registerCustomToString(UtilL::isArray, TextUtil::unknownArrayToString);
+		CUSTOM_TO_STRINGS.register(CharSequence.class, CharSequence::toString);
+		IN_TABLE_TO_STRINGS.register(CharSequence.class, CharSequence::toString);
 		
-		registerCustomToString(FloatBuffer.class, buffer->{
+		CUSTOM_TO_STRINGS.register(UtilL::isArray, TextUtil::unknownArrayToString);
+		
+		CUSTOM_TO_STRINGS.register(FloatBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -41,7 +78,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(IntBuffer.class, buffer->{
+		CUSTOM_TO_STRINGS.register(IntBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("IntBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -50,7 +87,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(ByteBuffer.class, buffer->{
+		CUSTOM_TO_STRINGS.register(ByteBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i)&0xFF);
@@ -60,7 +97,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(LongBuffer.class, buffer->{
+		CUSTOM_TO_STRINGS.register(LongBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("LongBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -69,7 +106,7 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(ShortBuffer.class, buffer->{
+		CUSTOM_TO_STRINGS.register(ShortBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ShortBuffer[");
 			for(int i=0;i<buffer.limit();){
 				print.append(buffer.get(i));
@@ -78,14 +115,17 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(LinkedList.class, list->{
+		CUSTOM_TO_STRINGS.register(LinkedList.class, list->{
 			StringBuilder print=new StringBuilder("[");
 			list.forEach(e->print.append(toString(e)));
 			print.append(']');
 			return print.toString();
 		});
-		registerCustomToString(Stream.class, stream->toString((Object)stream.toArray()));
-		registerCustomToString(AbstractCollection.class, col->{
+		CUSTOM_TO_STRINGS.register(Stream.class, stream->toString((Object)stream.toArray()));
+		CUSTOM_TO_STRINGS.register(IntStream.class, stream->toString(stream.toArray()));
+		CUSTOM_TO_STRINGS.register(DoubleStream.class, stream->toString(stream.toArray()));
+		CUSTOM_TO_STRINGS.register(LongStream.class, stream->toString(stream.toArray()));
+		CUSTOM_TO_STRINGS.register(AbstractCollection.class, col->{
 			Iterator<?> it=col.iterator();
 			if(!it.hasNext())
 				return "[]";
@@ -117,7 +157,15 @@ public class TextUtil{
 		return print.append("]").toString();
 	}
 	
-	public static void mapObjectValues(@NotNull Object o, BiConsumer<String, Object> push){
+	public static Map<String, Object> mapObjectValues(Object o){
+		Map<String, Object> map=new LinkedHashMap<>();
+		mapObjectValues(o, map::put);
+		return map;
+	}
+	
+	public static void mapObjectValues(Object o, @NotNull BiConsumer<String, Object> push){
+		if(o==null) return;
+		
 		Class c=o.getClass();
 		for(Method m : c.getMethods()){
 			if(m.getParameterCount()!=0) continue;
@@ -141,12 +189,11 @@ public class TextUtil{
 			if(!Character.isAlphabetic(ch)||!Character.isUpperCase(ch)) continue;
 			name=firstToLoverCase(name.substring(prefix));
 			
-			
 			try{
 				m.setAccessible(true);
 				push.accept(name, m.invoke(o));
-			}catch(ReflectiveOperationException e){
-				e.printStackTrace();
+			}catch(Throwable e){
+				push.accept(name, "<read error>");
 			}
 		}
 		
@@ -207,29 +254,14 @@ public class TextUtil{
 	
 	@NotNull
 	public static String toString(@Nullable Object obj){
-		if(obj==null) return "null";
-		if(obj instanceof CharSequence) return obj.toString();
-		
-		Class<?> type=obj.getClass();
-		
-		return CUSTOM_TO_STRINGS.entrySet()
-		                        .stream()
-		                        .filter(e->e.getKey().test(type))
-		                        .findAny()
-		                        .map(Map.Entry::getValue)
-		                        .orElse(TextUtil::enhancedToString)
-		                        .apply(obj);
+		return CUSTOM_TO_STRINGS.toString(obj);
 	}
 	
-	private static final Map<Class, Boolean> CLASS_CACHE=new HashMap<>();
-	
-	public static String toNamedJson(Object o){
-		return _toNamedJson(o);
-	}
 	
 	private static final Stack<Object> JSON_CALL_STACK=new Stack<>();
 	
-	private static synchronized String _toNamedJson(Object o){
+	public static String toNamedJson(Object o){
+		
 		JSON_CALL_STACK.push(o);
 		try{
 			if(o==null) return "null";
@@ -244,6 +276,9 @@ public class TextUtil{
 			mapObjectValues(o, (name, obj)->{
 				if(!JSON_NULL_PRINT&&obj==null) return;
 				if(JSON_CALL_STACK.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
+				if(obj instanceof String){
+					obj="\""+((String)obj).replace("\n", "\\n").replace("\r", "\\r")+'"';
+				}
 				data.put(name, toString(obj));
 			});
 			
@@ -257,19 +292,276 @@ public class TextUtil{
 		
 	}
 	
-	@SuppressWarnings("unchecked")
-	public static String enhancedToString(Object o){
+	private static final Stack<Object> PRETTY_JSON_CALL_STACK=new Stack<>();
+	private static final String        TAB                   ="    ";
+	private static final int           MAX_SINGLE_LINE_ARRAY =150;
+	
+	public static String toNamedPrettyJson(Object o){
+		return toNamedPrettyJson(o, false);
+	}
+	
+	public static String toNamedPrettyJson(Object o, boolean tryTabulatingArrays){
 		if(o==null) return "null";
 		
-		boolean overridesToString=CLASS_CACHE.computeIfAbsent(o.getClass(), c->{
+		if(PRETTY_JSON_CALL_STACK.contains(o)) return "<circular reference of "+o.getClass().getSimpleName()+">";
+		if(o instanceof CharSequence) return o.toString();
+		if(o instanceof Number) return o.toString();
+		if(o instanceof Class) return ((Class)o).getSimpleName();
+		
+		Class c=o.getClass();
+		
+		if(c==Boolean.class) return o.toString();
+		
+		PRETTY_JSON_CALL_STACK.push(o);
+		try{
+			
+			Function<String, String> tabulate      =s->s.replace("\n", "\n"+TAB);
+			Function<Object, String> lazyTabbedJson=o1->tabulate.apply(overridesToString(o1.getClass())&&!(o1 instanceof Collection)?o1.toString():toNamedPrettyJson(o1, tryTabulatingArrays));
+			
+			
+			if(o.getClass().isArray()){
+				o=Arrays.asList((Object[])o);
+			}
+			
+			if(o instanceof Collection){
+				Collection<?> l=(Collection)o;
+				
+				tabulator:
+				if(tryTabulatingArrays){
+					if(l.isEmpty()) break tabulator;
+					
+					Class<?> unifyingClass=l.stream()
+					                        .filter(Objects::nonNull)
+					                        .map(o1->(Class)o1.getClass())
+					                        .reduce(UtilL::findClosestCommonSuper)
+					                        .orElse(Object.class);
+					
+					if(unifyingClass==Object.class) break tabulator; //not same classes so can't tabulate
+					if(overridesToString(unifyingClass)) break tabulator; //overrides to string so it's better not to generate table
+					
+					return "{{\n"+toTable(" "+unifyingClass.getSimpleName()+" ", l.stream().map(TextUtil::mapObjectValues).collect(Collectors.toList()))+"}}";
+				}
+				
+				String contents=l.stream().map(lazyTabbedJson).collect(Collectors.joining(",\n"+TAB));
+				if(contents.length()<MAX_SINGLE_LINE_ARRAY) return tabulate.apply(toString(o));
+				
+				return "[\n"+TAB+contents+"\n]";
+			}
+			
+			if(o instanceof Map){
+				Map<?, ?> l=(Map)o;
+				
+				StringBuilder sb=new StringBuilder("[\n");
+				
+				for(Map.Entry o1 : l.entrySet()){
+					sb.append(TAB).append(toString(o1.getKey())).append(lazyTabbedJson.apply(o1.getValue())).append(",\n");
+				}
+				
+				return sb.append(']').toString();
+			}
+			
+			Map<String, String> data=new HashMap<>();
+			
+			mapObjectValues(o, (name, obj)->{
+				if(!JSON_NULL_PRINT&&obj==null) return;
+				if(PRETTY_JSON_CALL_STACK.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
+				if(obj instanceof String){
+					obj="\""+((String)obj).replace("\n", "\\n").replace("\r", "\\r")+'"';
+				}
+				data.put(name, lazyTabbedJson.apply(obj));
+			});
+			
+			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
+			
+			return c.getSimpleName()+"{\n"+TAB+data.entrySet().stream().map(ob->tabulate.apply(ob.toString())).collect(Collectors.joining(",\n"+TAB))+"\n}";
+			
+		}finally{
+			PRETTY_JSON_CALL_STACK.pop();
+		}
+		
+	}
+	
+	public static boolean TABLE_BOOLEAN_TO_CHECK=true;
+	
+	public static String toTable(Iterable<?> rows){
+		return toTable("", rows);
+	}
+	
+	public static String toTable(String title, Iterable<?> rows){
+		List<Map<?, ?>> rowsExplicit=new ArrayList<>(rows instanceof Collection?((Collection<?>)rows).size():16);
+		for(Object obj : rows) rowsExplicit.add(mapObjectValues(obj));
+		return toTable(title, rowsExplicit);
+	}
+	
+	public static String toTable(Collection<? extends Map<?, ?>> rows){
+		return toTable("", rows);
+	}
+	
+	@SuppressWarnings("AutoBoxing")
+	public static String toTable(String title, Collection<? extends Map<?, ?>> rows){
+		Function<Object, String> toSingleLineString=o->{
+			if("null".equals(o)) return "";
+			
+			String        nonTabbed=IN_TABLE_TO_STRINGS.toString(o);
+			StringBuilder tabbed   =new StringBuilder(nonTabbed.length()+4);
+			
+			for(int i=0;i<nonTabbed.length();i++){
+				char c=nonTabbed.charAt(i);
+				switch(c){
+				case '\n':
+					tabbed.append("\\n");
+					break;
+				case '\r':
+					tabbed.append("\\r");
+					break;
+				case '\t':
+					tabbed.append(stringFill((tabbed.length()+1)%4, ' '));
+					break;
+				default:
+					tabbed.append(c);
+					break;
+				}
+			}
+			
+			return tabbed.toString();
+		};
+		
+		List<Map<String, String>> safe=rows.stream().map(row->{
+			Map<String, String> map=new LinkedHashMap<>();
+			
+			if(row!=null) row.forEach((k, v)->{
+				if(v==null||"null".equals(v)) return;
+				
+				String s=toSingleLineString.apply(k);
+				if(k instanceof CharSequence&&s.startsWith("\"")&&s.endsWith("\"")){
+					s=s.substring(1, s.length()-1);
+				}
+				map.put(s, toSingleLineString.apply(v));
+			});
+			
+			return map;
+		}).collect(Collectors.toList());
+		
+		if(TABLE_BOOLEAN_TO_CHECK){
+			Map<String, Boolean> booleanColumns=new HashMap<>();
+			
+			for(Map<String, String> row : safe){
+				row.forEach((k, v)->{
+					if(!booleanColumns.getOrDefault(k, Boolean.TRUE)) return;
+					booleanColumns.put(k, v.isEmpty()||v.equals("true")||v.equals("false"));
+				});
+			}
+			
+			for(Map<String, String> row : safe){
+				row.entrySet().forEach(e->{
+					if(booleanColumns.get(e.getKey())){
+						switch(e.getValue()){
+						case "true":
+							e.setValue("√");
+							break;
+						case "false":
+							e.setValue("x");
+							break;
+						}
+					}
+				});
+			}
+		}
+		
+		Map<String, Integer> columnWidths=new LinkedHashMap<>();
+		
+		for(Map<String, String> row : safe){
+			row.forEach((k, v)->{
+				Integer max   =columnWidths.get(k);
+				int     newLen=Math.max(k.length(), v.length())+2;
+				if(max==null||max<newLen) columnWidths.put(k, newLen);
+			});
+		}
+		
+		if(columnWidths.isEmpty()) columnWidths.put("", 0);
+		
+		int width=columnWidths.values().stream().mapToInt(i->i+1).sum()+1;
+		
+		int titleRequiredWidth=title.length()+4;
+		while(titleRequiredWidth>width){
+			int diff       =titleRequiredWidth-width;
+			int columnCount=columnWidths.size();
+			
+			if(diff>columnCount){
+				int toAdd=diff/columnCount;
+				for(Map.Entry<String, Integer> e : columnWidths.entrySet()){
+					e.setValue(e.getValue()+toAdd);
+				}
+				width+=toAdd*columnCount;
+			}else{
+				columnWidths.entrySet().stream().limit(diff).forEach(e->e.setValue(e.getValue()+1));
+				width+=diff;
+			}
+		}
+		
+		BiFunction<Integer, String, String> printCell=(len, val)->{
+			if(val==null||val.equals("null")) return TextUtil.stringFill(len, ' ');
+			int diff=len-val.length();
+			if(diff==0) return val;
+			
+			int l;
+			if(UtilL.isNumeric(val)) l=diff>1?diff-1:diff;
+			else if(val.startsWith("[")&&val.endsWith("]")) l=Math.min(diff, 1);
+			else l=diff/2;
+			
+			int r=diff-l;
+			
+			return TextUtil.stringFill(l, ' ')+val+TextUtil.stringFill(r, ' ');
+		};
+		
+		char lineChar='=';
+		
+		String line=stringFill(width, lineChar);
+		
+		StringBuilder result=new StringBuilder((line.length()+1)*safe.size());
+		
+		int titleFreeSpace=width-title.length();
+		
+		int l=titleFreeSpace/2;
+		int r=titleFreeSpace-l;
+		for(int i=0;i<l;i++) result.append(lineChar);
+		result.append(title);
+		for(int i=0;i<r;i++) result.append(lineChar);
+		result.append('\n');
+		
+		columnWidths.forEach((name, len)->result.append('|').append(printCell.apply(len, name)));
+		result.append("|\n");
+		
+		result.append(line).append('\n');
+		
+		for(Map<String, String> row : safe){
+			
+			columnWidths.forEach((name, len)->result.append('|').append(printCell.apply(len, row.get(name))));
+			result.append("|\n");
+		}
+		
+		result.append(line);
+		
+		return result.toString();
+	}
+	
+	private static final Map<Class<?>, Boolean> CLASS_CACHE=new HashMap<>();
+	
+	@SuppressWarnings("AutoBoxing")
+	public static synchronized boolean overridesToString(Class<?> cl){
+		return CLASS_CACHE.computeIfAbsent(cl, c->{
 			try{
 				return c.getMethod("toString").getDeclaringClass()!=Object.class;
 			}catch(NoSuchMethodException e){
 				return Boolean.TRUE;
 			}
 		});
+	}
+	
+	public static String enhancedToString(Object o){
+		if(o==null) return "null";
 		
-		if(overridesToString) return o.toString();
+		if(overridesToString(o.getClass())) return o.toString();
 		return toNamedJson(o);
 	}
 	
@@ -297,6 +589,8 @@ public class TextUtil{
 	
 	@NotNull
 	public static String stringFill(int length, char c){
+		if(length==0) return "";
+		
 		char[] ch=new char[length];
 		Arrays.fill(ch, c);
 		return new String(ch);

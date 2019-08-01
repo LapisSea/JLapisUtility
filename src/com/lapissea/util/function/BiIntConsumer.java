@@ -4,6 +4,7 @@ import com.lapissea.util.NotNull;
 
 import java.util.Objects;
 
+@FunctionalInterface
 public interface BiIntConsumer<T>{
 	
 	void accept(int i, T t);

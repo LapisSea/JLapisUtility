@@ -31,7 +31,7 @@ public class PairM<Obj1, Obj2>{
 	@NotNull
 	@Override
 	public String toString(){
-		return getClass().getSimpleName()+"["+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";
+		return getClass().getSimpleName()+"{"+TextUtil.toString(obj1)+", "+TextUtil.toString(obj2)+"}";
 	}
 	
 	@Override

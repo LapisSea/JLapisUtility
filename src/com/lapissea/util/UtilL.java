@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.*;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -27,6 +28,9 @@ public class UtilL{
 	public static final float  SQRT2F  =(float)SQRT2D;
 	public static final byte[] NO_BYTES=new byte[0];
 	
+	public static final int MS=1000;
+	public static final int NS=1000000;
+	
 	
 	public static boolean isArray(@Nullable Object object){
 		if(object==null) return false;
@@ -41,6 +45,18 @@ public class UtilL{
 		try{
 			Thread.sleep(millis);
 		}catch(InterruptedException ignored){}
+	}
+	
+	public static void sleep(long millis, float nanoUnit){
+		sleep(millis, (int)(NS*nanoUnit));
+	}
+	
+	public static void sleep(float millis){
+		sleep((long)millis, (millis%1));
+	}
+	
+	public static void sleep(double millis){
+		sleep((long)millis, (float)(millis%1));
 	}
 	
 	public static void sleep(long millis, int nanos){
@@ -142,9 +158,9 @@ public class UtilL{
 	
 	@NotNull
 	public static <T> T fromString(@NotNull String s){
-		//		byte[] data=Base64.getDecoder().decode(s);
 		byte[] data=s.getBytes();
 		try(ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data))){
+			//noinspection unchecked
 			return (T)ois.readObject();
 		}catch(Exception e){
 			throw uncheckedThrow(e);
@@ -164,7 +180,7 @@ public class UtilL{
 	public static void closeSilenty(@NotNull Closeable closeable){
 		try{
 			closeable.close();
-		}catch(IOException e){}
+		}catch(IOException ignored){}
 	}
 	
 	@NotNull
@@ -184,9 +200,20 @@ public class UtilL{
 	}
 	
 	@NotNull
+	public static Field getField(@NotNull Class<?> type, String name) throws NoSuchFieldException{
+		
+		try{
+			return type.getDeclaredField(name);
+		}catch(NoSuchFieldException e){
+			if(type==Object.class) throw e;
+			return getField(type.getSuperclass(), name);
+		}
+	}
+	
+	@NotNull
 	public static String compress(@NotNull String data){
 		try{
-			return new String(compress(data.getBytes("UTF-8")));
+			return new String(compress(data.getBytes(UTF_8)));
 		}catch(Exception e){
 			throw new RuntimeException(e);
 		}
@@ -214,7 +241,7 @@ public class UtilL{
 			
 			if(isCompressed(compressed)){
 				GZIPInputStream gis           =new GZIPInputStream(new ByteArrayInputStream(compressed));
-				BufferedReader  bufferedReader=new BufferedReader(new InputStreamReader(gis, "UTF-8"));
+				BufferedReader  bufferedReader=new BufferedReader(new InputStreamReader(gis, UTF_8));
 				
 				String line;
 				while((line=bufferedReader.readLine())!=null){
@@ -239,10 +266,11 @@ public class UtilL{
 	public static Class<?> findClosestCommonSuper(@NotNull Class<?> a, @NotNull Class<?> b){
 		if(a==b) return a;
 		if(a==Object.class||b==Object.class) return Object.class;
-		
-		while(!a.isAssignableFrom(b))
-			a=a.getSuperclass();
-		return a;
+		Class<?> s=a;
+		while(!s.isAssignableFrom(b)){
+			s=s.getSuperclass();
+		}
+		return s;
 	}
 	
 	public static void iterate(Object data, @NotNull Consumer<Object> consumer){
@@ -323,6 +351,30 @@ public class UtilL{
 		while(checkWhile.getAsBoolean()) sleep(ms, ns);
 	}
 	
+	public static void sleepWhile(@NotNull BooleanSupplier checkWhile, long ms, float nsUnit){
+		while(checkWhile.getAsBoolean()) sleep(ms, (int)(NS*nsUnit));
+	}
+	
+	public static <T> T waitForNotNull(@NotNull Supplier<T> getter, long ms, float nsUnit){
+		while(true){
+			T val=getter.get();
+			if(val!=null) return val;
+			sleep(ms, (int)(NS*nsUnit));
+		}
+	}
+	
+	public static <T> T waitForNotNull(@NotNull Supplier<T> getter, long ms){
+		while(true){
+			T val=getter.get();
+			if(val!=null) return val;
+			sleep(ms);
+		}
+	}
+	
+	public static <T> T waitForNotNull(@NotNull Supplier<T> getter){
+		return waitForNotNull(getter, 1);
+	}
+	
 	public static class InputStreamSilent extends InputStream{
 		
 		public final InputStream parent;
@@ -342,7 +394,7 @@ public class UtilL{
 		}
 		
 		@Override
-		public int read(@NotNull byte b[]) throws IOException{
+		public int read(@NotNull byte[] b) throws IOException{
 			return parent.read(b);
 		}
 		
@@ -513,7 +565,7 @@ public class UtilL{
 	}
 	
 	@NotNull
-	public static <T extends Throwable> RuntimeException exitWithErrorMsg(Object... msg) throws T{
+	public static RuntimeException exitWithErrorMsg(Object... msg){
 		String msg0=TextUtil.toString(msg);
 		LogUtil.printlnEr(msg0);
 		System.exit(-1);
@@ -773,4 +825,12 @@ public class UtilL{
 		
 		return map;
 	}
+	
+	private static final Pattern NUMERIC_PATTERN=Pattern.compile("-?\\d+(\\.\\d+)?");
+	
+	public static boolean isNumeric(CharSequence str){
+		return NUMERIC_PATTERN.matcher(str).matches();
+	}
+	
+	
 }

@@ -1,6 +1,9 @@
 package com.lapissea.util;
 
 
+import java.awt.*;
+import java.awt.geom.Line2D;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -9,16 +12,19 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.lapissea.util.TextUtil.*;
 import static com.lapissea.util.UtilL.*;
 
 public class LogUtil{
+	
 	private static final long START_TIME=System.currentTimeMillis();
 	
 	@SuppressWarnings("PointlessBitwiseExpression")
@@ -243,7 +249,7 @@ public class LogUtil{
 				this.tabulated=tabulated;
 			}
 			
-			public String getTab(int size){
+			public synchronized String getTab(int size){
 				if(!tabulated) return "";
 				
 				long tim=System.currentTimeMillis();
@@ -645,7 +651,8 @@ public class LogUtil{
 	}
 	
 	//returns null if object type is suboptimal
-	private static final List<Function<Object, LinkedHashMap<String, String>>> OBJECT_SCANNERS=Arrays.asList(
+	private static final List<Function<Object, Map<String, String>>> OBJECT_SCANNERS=Arrays.asList(
+		map->map instanceof Map?((Map<?, ?>)map).entrySet().stream().collect(Collectors.toMap((Map.Entry e)->IN_TABLE_TO_STRINGS.toString(e.getKey()), (Map.Entry e)->IN_TABLE_TO_STRINGS.toString(e.getValue()))):null,
 		//kotlin object
 		row->{
 			Class<?> c=row.getClass();
@@ -656,7 +663,7 @@ public class LogUtil{
 			for(Field f : fs){
 				f.setAccessible(true);
 				try{
-					table.put(f.getName(), TextUtil.toString(f.get(row)));
+					table.put(f.getName(), IN_TABLE_TO_STRINGS.toString(f.get(row)));
 				}catch(IllegalAccessException ignored){}
 			}
 			
@@ -668,17 +675,17 @@ public class LogUtil{
 			
 			mapObjectValues(o, (name, obj)->{
 				if(!JSON_NULL_PRINT&&obj==null) return;
-				data.put(name, TextUtil.toString(obj));
+				data.put(name, IN_TABLE_TO_STRINGS.toString(obj));
 			});
 			
 			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
 			
 			return data;
 		}
-	                                                                                                        );
+	                                                                                              );
 	
 	private static Map<String, String> objectToMap(Object row){
-		for(Function<Object, LinkedHashMap<String, String>> objectScanner : OBJECT_SCANNERS){
+		for(Function<Object, Map<String, String>> objectScanner : OBJECT_SCANNERS){
 			Map<String, String> mapped=objectScanner.apply(row);
 			if(mapped!=null) return mapped;
 		}
@@ -812,7 +819,7 @@ public class LogUtil{
 		synchronized(System.out){
 			Map<String, String> rowSafe=new LinkedHashMap<>(row.size());
 			
-			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\\n");
+			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\n");
 			row.forEach((k, v)->{
 				String val=toString.apply(v);
 				
@@ -898,6 +905,136 @@ public class LogUtil{
 			TABLE_FLAG=true;
 			out(sb.toString());
 		}
+	}
+	
+	//================================================
+	
+	
+	public static class Val<T>{
+		
+		public interface Getter<T>{
+			double get(T obj);
+		}
+		
+		private final String    name;
+		private final char      identifier;
+		private final Getter<T> getter;
+		
+		public Val(String name, char identifier, Getter<T> getter){
+			this.name=name;
+			this.identifier=identifier;
+			this.getter=getter;
+		}
+	}
+	
+	@SafeVarargs
+	public static <T> void printGraph(T[] data, int height, boolean snapBottom, Val<T>... values){
+		printGraph(data, height, -1, snapBottom, values);
+	}
+	
+	@SafeVarargs
+	public static <T> void printGraph(T[] data, int height, int width, boolean snapBottom, Val<T>... values){
+		printGraph(Arrays.asList(data), height, width, snapBottom, values);
+	}
+	
+	@SafeVarargs
+	public static <T> void printGraph(Collection<T> data, int height, boolean snapBottom, Val<T>... values){
+		printGraph(data, height, -1, snapBottom, values);
+	}
+	
+	@SafeVarargs
+	public static <T> void printGraph(Collection<T> data, int height, int width, boolean snapBottom, Val<T>... values){
+		
+		if(height<=0) throw new IllegalArgumentException("Height must be greater than 0");
+		if(width<=0){
+			if(width!=-1) throw new IllegalArgumentException("Width must be greater than 0 or -1 for auto width");
+			width=data.size();
+		}
+		
+		//collect
+		double[][] collected=new double[data.size()][values.length];
+		{
+			int i=0;
+			for(T datum : data){
+				double[] line=collected[i];
+				for(int y=0;y<line.length;y++){
+					line[y]=values[y].getter.get(datum);
+				}
+				i++;
+			}
+		}
+		//normalize
+		double[] min=new double[values.length];
+		double[] max=new double[values.length];
+		Arrays.fill(min, Double.MAX_VALUE);
+		Arrays.fill(max, Double.MIN_VALUE);
+		
+		for(double[] line : collected){
+			for(int j=0;j<line.length;j++){
+				double val=line[j];
+				if(val<min[j]) min[j]=val;
+				if(val>max[j]) max[j]=val;
+			}
+		}
+		
+		if(!snapBottom){
+			for(int i=0;i<min.length;i++){
+				if(min[i]>0&&max[i]>0) min[i]=0;
+			}
+		}
+		
+		for(double[] line : collected){
+			for(int j=0;j<line.length;j++){
+				double unit=(line[j]-min[j])/(max[j]-min[j]);
+				line[j]=unit;
+			}
+		}
+		
+		//render
+		
+		BufferedImage img=new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		
+		Graphics2D g=img.createGraphics();
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+		
+		for(int i=0;i<collected.length-1;i++){
+			double[] current=collected[i];
+			double[] next   =collected[i+1];
+			
+			for(int j=0;j<current.length;j++){
+				double yCurrent=(1-current[j])*height;
+				double xCurrent=i/(double)collected.length*width;
+				double yNext   =(1-next[j])*height;
+				double xNext   =(i+1)/(double)collected.length*width;
+				
+				int id=j+1;
+				g.setColor(new Color(id, id, id));
+				g.draw(new Line2D.Double(xCurrent, yCurrent, xNext, yNext));
+			}
+		}
+		
+		g.dispose();
+		
+		StringBuilder sb=new StringBuilder(2+(width+2)*(height+1)+2);
+		
+		sb.append("A\n");
+		for(int y=0;y<height;y++){
+			sb.append('|');
+			for(int x=0;x<width;x++){
+				int id=img.getRGB(x, y)&0xFF;
+				sb.append(id==0?' ':values[id-1].identifier);
+			}
+			sb.append('\n');
+		}
+		for(int i=0;i<width+1;i++){
+			sb.append('-');
+		}
+		sb.append(">\n");
+
+//		LogUtil.println(2+(width+2)*(height+1)+2, sb.toString().length());
+		out(sb.toString());
+		println(IntStream.range(0, values.length).mapToObj(i->values[i].name+" '"+values[i].identifier+"' - ("+min[i]+" - "+max[i]+")").collect(Collectors.joining(", ")));
+		
 	}
 	
 	//================================================
