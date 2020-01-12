@@ -27,3 +27,4 @@ public interface UnsafeConsumer<T,E extends Throwable>{
 		};
 	}
 }
+

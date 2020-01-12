@@ -2,34 +2,50 @@ package com.lapissea.util;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.*;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.*;
 import java.util.stream.*;
 
 import static com.lapissea.util.UtilL.*;
 import static java.lang.reflect.Modifier.*;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class TextUtil{
 	
 	public static final class CustomToString{
-		private final Map<Predicate<Class>, Function<Object, String>> overrides=new LinkedHashMap<>();
-		private final Function<Object, String>                        fallback;
 		
-		public CustomToString(Function<Object, String> fallback){
+		private static class ToStringNode{
+			private final Predicate<Class>         checkExact;
+			private final Predicate<Class>         check;
+			private final Function<Object, String> toString;
+			
+			private ToStringNode(Predicate<Class> checkExact, Predicate<Class> check, Function<Object, String> toString){
+				this.checkExact=checkExact;
+				this.check=check;
+				this.toString=toString;
+			}
+		}
+		
+		private final List<ToStringNode>       overrides=new ArrayList<>();
+		private final Function<Object, String> fallback;
+		
+		private CustomToString(Function<Object, String> fallback){
 			this.fallback=fallback;
 		}
 		
-		public <T> void register(@NotNull Class<T> type, @NotNull Function<T, String> funct){
-			register(t->t==type||instanceOf(t, type), funct);
+		public <T> void register(@NotNull Class<T> type, @NotNull Function<T, String> toString){
+			register(t->t==type, t->instanceOf(t, type), toString);
+		}
+		
+		public <T> void register(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> toString){
+			register(t->false, canStringify, toString);
 		}
 		
 		@SuppressWarnings("unchecked")
-		public <T> void register(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> funct){
-			overrides.put((Predicate<Class>)((Object)canStringify), (Function<Object, String>)funct);
+		private <T> void register(@NotNull Predicate<Class<T>> checkExact, @NotNull Predicate<Class<T>> check, @NotNull Function<T, String> toString){
+			overrides.add(new ToStringNode((Predicate<Class>)((Object)checkExact), (Predicate<Class>)((Object)check), (Function<Object, String>)toString));
 		}
 		
 		public String toString(Object obj){
@@ -37,27 +53,45 @@ public class TextUtil{
 			
 			Class<?> type=obj.getClass();
 			
-			return overrides.entrySet()
-			                .stream()
-			                .filter(e->e.getKey().test(type))
-			                .findAny()
-			                .map(Map.Entry::getValue)
-			                .orElse(fallback)
-			                .apply(obj);
+			for(ToStringNode e : overrides){
+				if(e.checkExact.test(type)){
+					return e.toString.apply(obj);
+				}
+			}
+			
+			for(ToStringNode e : overrides){
+				if(e.check.test(type)){
+					return e.toString.apply(obj);
+				}
+			}
+			
+			return fallback.apply(obj);
 		}
 	}
 	
-	public static final String  NEW_LINE       =System.lineSeparator();
-	public static       boolean JSON_NULL_PRINT=false;
+	public static final String  NEW_LINE                =System.lineSeparator();
+	public static       boolean JSON_NULL_PRINT         =false;
+	public static       boolean USE_SHORT_IN_COLLECTIONS=true;
+	/**
+	 * toShortString, toTableString
+	 */
+	public static       boolean IMPLY_TO_STRINGS        =true;
 	
 	public static final CustomToString CUSTOM_TO_STRINGS  =new CustomToString(TextUtil::enhancedToString);
-	public static final CustomToString IN_TABLE_TO_STRINGS=new CustomToString(CUSTOM_TO_STRINGS::toString);
+	public static final CustomToString SHORT_TO_STRINGS   =new CustomToString(CUSTOM_TO_STRINGS::toString);
+	public static final CustomToString IN_TABLE_TO_STRINGS=new CustomToString(SHORT_TO_STRINGS::toString);
 	
+	/**
+	 * replace with CUSTOM_TO_STRINGS.register()
+	 */
 	@Deprecated
 	public static <T> void registerCustomToString(@NotNull Class<T> type, @NotNull Function<T, String> funct){
 		CUSTOM_TO_STRINGS.register(type, funct);
 	}
 	
+	/**
+	 * replace with CUSTOM_TO_STRINGS.register()
+	 */
 	@Deprecated
 	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> funct){
 		CUSTOM_TO_STRINGS.register(canStringify, funct);
@@ -68,6 +102,7 @@ public class TextUtil{
 		IN_TABLE_TO_STRINGS.register(CharSequence.class, CharSequence::toString);
 		
 		CUSTOM_TO_STRINGS.register(UtilL::isArray, TextUtil::unknownArrayToString);
+		CUSTOM_TO_STRINGS.register(Integer.class, Object::toString);
 		
 		CUSTOM_TO_STRINGS.register(FloatBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
@@ -115,17 +150,15 @@ public class TextUtil{
 			print.append(']');
 			return print.toString();
 		});
-		CUSTOM_TO_STRINGS.register(LinkedList.class, list->{
-			StringBuilder print=new StringBuilder("[");
-			list.forEach(e->print.append(toString(e)));
-			print.append(']');
-			return print.toString();
-		});
-		CUSTOM_TO_STRINGS.register(Stream.class, stream->toString((Object)stream.toArray()));
+		
+		Supplier<CustomToString> collectionTS=()->USE_SHORT_IN_COLLECTIONS?SHORT_TO_STRINGS:CUSTOM_TO_STRINGS;
+		
+		CUSTOM_TO_STRINGS.register(Stream.class, stream->Arrays.toString(stream.map(collectionTS.get()::toString).toArray()));
 		CUSTOM_TO_STRINGS.register(IntStream.class, stream->toString(stream.toArray()));
 		CUSTOM_TO_STRINGS.register(DoubleStream.class, stream->toString(stream.toArray()));
 		CUSTOM_TO_STRINGS.register(LongStream.class, stream->toString(stream.toArray()));
-		CUSTOM_TO_STRINGS.register(AbstractCollection.class, col->{
+		
+		CUSTOM_TO_STRINGS.register(Collection.class, col->{
 			Iterator<?> it=col.iterator();
 			if(!it.hasNext())
 				return "[]";
@@ -134,12 +167,45 @@ public class TextUtil{
 			sb.append('[');
 			for(;;){
 				Object e=it.next();
-				sb.append(e==col?"(this Collection)":TextUtil.toString(e));
-				if(!it.hasNext())
-					return sb.append(']').toString();
+				sb.append(e==col?"(this Collection)":collectionTS.get().toString(e));
+				if(!it.hasNext()) return sb.append(']').toString();
 				sb.append(',').append(' ');
 			}
 		});
+		
+		CUSTOM_TO_STRINGS.register(Map.class, map->{
+			Iterator<? extends Map.Entry<?, ?>> i=map.entrySet().iterator();
+			if(!i.hasNext())
+				return "{}";
+			
+			StringBuilder sb=new StringBuilder();
+			sb.append('{');
+			for(;;){
+				Map.Entry<?, ?> e=i.next();
+				
+				Object key  =e.getKey();
+				Object value=e.getValue();
+				sb.append(key==map?"(this Map)":collectionTS.get().toString(key));
+				sb.append('=');
+				sb.append(value==map?"(this Map)":collectionTS.get().toString(value));
+				if(!i.hasNext()) return sb.append('}').toString();
+				sb.append(',').append(' ');
+			}
+		});
+		
+		BiPredicate<Class<?>, String> checkImply=(c, name)->IMPLY_TO_STRINGS&&getOverrides(c).get(name);
+		BiFunction<Object, String, String> doImply=(obj, name)->{
+			try{
+				String val=(String)obj.getClass().getMethod(name).invoke(obj);
+				if(val==null) return "null";
+				return val;
+			}catch(ReflectiveOperationException e){
+				throw new RuntimeException(e);
+			}
+		};
+		
+		SHORT_TO_STRINGS.register(c->checkImply.test(c, "toShortString"), obj->doImply.apply(obj, "toShortString"));
+		IN_TABLE_TO_STRINGS.register(c->checkImply.test(c, "toTableString"), obj->doImply.apply(obj, "toTableString"));
 	}
 	
 	@NotNull
@@ -217,6 +283,7 @@ public class TextUtil{
 		if(arr instanceof float[]) return Arrays.toString((float[])arr);
 		if(arr instanceof byte[]){
 			byte[] ba=(byte[])arr;
+			if(ba.length==0) return "[]";
 			
 			int iMax=ba.length-1;
 			
@@ -304,11 +371,10 @@ public class TextUtil{
 		if(o==null) return "null";
 		
 		if(PRETTY_JSON_CALL_STACK.contains(o)) return "<circular reference of "+o.getClass().getSimpleName()+">";
-		if(o instanceof CharSequence) return o.toString();
-		if(o instanceof Number) return o.toString();
-		if(o instanceof Class) return ((Class)o).getSimpleName();
+		if(o instanceof CharSequence||o instanceof Number) return o.toString();
+		if(o instanceof Class) return ((Class<?>)o).getSimpleName();
 		
-		Class c=o.getClass();
+		Class<?> c=o.getClass();
 		
 		if(c==Boolean.class) return o.toString();
 		
@@ -324,7 +390,7 @@ public class TextUtil{
 			}
 			
 			if(o instanceof Collection){
-				Collection<?> l=(Collection)o;
+				Collection<?> l=(Collection<?>)o;
 				
 				tabulator:
 				if(tryTabulatingArrays){
@@ -354,7 +420,7 @@ public class TextUtil{
 				StringBuilder sb=new StringBuilder("[\n");
 				
 				for(Map.Entry o1 : l.entrySet()){
-					sb.append(TAB).append(toString(o1.getKey())).append(lazyTabbedJson.apply(o1.getValue())).append(",\n");
+					sb.append(TAB).append(toString(o1.getKey())).append(": ").append(lazyTabbedJson.apply(o1.getValue())).append(",\n");
 				}
 				
 				return sb.append(']').toString();
@@ -384,7 +450,13 @@ public class TextUtil{
 	public static boolean TABLE_BOOLEAN_TO_CHECK=true;
 	
 	public static String toTable(Iterable<?> rows){
-		return toTable("", rows);
+		Class type=StreamSupport.stream(rows.spliterator(), false)
+		                        .filter(Objects::nonNull)
+		                        .map(o->(Class)o.getClass())
+		                        .reduce(UtilL::findClosestCommonSuper)
+		                        .orElse(Object.class);
+		
+		return toTable(type==Object.class?"":type.getSimpleName(), rows);
 	}
 	
 	public static String toTable(String title, Iterable<?> rows){
@@ -545,17 +617,40 @@ public class TextUtil{
 		return result.toString();
 	}
 	
-	private static final Map<Class<?>, Boolean> CLASS_CACHE=new HashMap<>();
+	private static final Map<Class<?>, Map<String, Boolean>> CLASS_CACHE=new HashMap<>();
 	
 	@SuppressWarnings("AutoBoxing")
-	public static synchronized boolean overridesToString(Class<?> cl){
+	private static synchronized Map<String, Boolean> getOverrides(Class<?> cl){
 		return CLASS_CACHE.computeIfAbsent(cl, c->{
+			Map<String, Boolean> result=new HashMap<>(3);
+			
+			Consumer<String> add=name->{
+				boolean hasFun;
+				try{
+					Method m   =c.getMethod(name);
+					int    mods=m.getModifiers();
+					hasFun=Modifier.isPublic(mods)&&
+					       !Modifier.isStatic(mods)&&
+					       m.getReturnType()==String.class&&
+					       m.getParameterCount()==0;
+				}catch(NoSuchMethodException e){
+					hasFun=false;
+				}
+				result.put(name, hasFun);
+			};
+			
 			try{
-				return c.getMethod("toString").getDeclaringClass()!=Object.class;
-			}catch(NoSuchMethodException e){
-				return Boolean.TRUE;
-			}
+				result.put("toString", c.getMethod("toString").getDeclaringClass()!=Object.class);
+			}catch(NoSuchMethodException ignored){}
+			
+			add.accept("toShortString");
+			add.accept("toTableString");
+			return result;
 		});
+	}
+	
+	public static synchronized boolean overridesToString(Class<?> cl){
+		return getOverrides(cl).get("toString");
 	}
 	
 	public static String enhancedToString(Object o){
@@ -773,4 +868,20 @@ public class TextUtil{
 		return result;
 	}
 	
+	public static boolean containsIgnoreCase(String src, String what){
+		int length=what.length();
+		if(length==0) return true;
+		
+		char firstLo=Character.toLowerCase(what.charAt(0));
+		char firstUp=Character.toUpperCase(what.charAt(0));
+		
+		for(int i=src.length()-length;i >= 0;i--){
+			final char ch=src.charAt(i);
+			if(ch!=firstLo&&ch!=firstUp) continue;
+			
+			if(src.regionMatches(true, i, what, 0, length)) return true;
+		}
+		
+		return false;
+	}
 }

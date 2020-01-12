@@ -28,8 +28,8 @@ public class UtilL{
 	public static final float  SQRT2F  =(float)SQRT2D;
 	public static final byte[] NO_BYTES=new byte[0];
 	
-	public static final int MS=1000;
-	public static final int NS=1000000;
+	public static final int MS=1_000;
+	public static final int NS=1_000_000;
 	
 	
 	public static boolean isArray(@Nullable Object object){
@@ -94,7 +94,7 @@ public class UtilL{
 	public static <T> T[] array(@NotNull List<T> list){
 		if(list.isEmpty()) return null;
 		
-		T[] a=(T[])UtilL.array(list.get(0).getClass(), list.size());
+		T[] a=(T[])UtilL.array(list.get(0).getClass(), 1);
 		return list.toArray(a);
 	}
 	
@@ -135,13 +135,23 @@ public class UtilL{
 		return (T[])Array.newInstance(componentType, length);
 	}
 	
+	@NotNull
+	@SuppressWarnings("unchecked")
+	public static <T> T[] array(T[] arr, int newLength){
+		return (T[])array(arr.getClass().getComponentType(), newLength);
+	}
+	
+	/**
+	 * left instanceof right
+	 */
 	public static boolean instanceOf(@NotNull Class<?> left, @NotNull Class<?> right){
 		if(left==right) return true;
-		try{
-			left.asSubclass(right);
-			return true;
-		}catch(Exception ignored){}
-		return false;
+//		try{
+//			left.asSubclass(right);
+//			return true;
+//		}catch(Exception ignored){}
+//		return false;
+		return right.isAssignableFrom(left);
 	}
 	
 	public static boolean instanceOf(@Nullable Object left, @NotNull Class<?> right){
@@ -789,9 +799,10 @@ public class UtilL{
 		while(lo<=hi){
 			int mid=(hi+lo)/2;
 			
-			if(value.compareTo(list.get(mid))<0){
+			int comp=value.compareTo(list.get(mid));
+			if(comp<0){
 				hi=mid-1;
-			}else if(value.compareTo(list.get(mid))>0){
+			}else if(comp>0){
 				lo=mid+1;
 			}else{
 				list.add(mid, value);
@@ -805,6 +816,10 @@ public class UtilL{
 	
 	public static void Assert(boolean condition){
 		if(!condition) throw new AssertionError();
+	}
+	
+	public static void Assert(boolean condition, Object... message){
+		if(!condition) throw new AssertionError(TextUtil.toString(message));
 	}
 	
 	public static void Assert(boolean condition, String message){

@@ -136,7 +136,8 @@ public class LogUtil{
 			//check and remove companion class
 			String companionMarker="$Companion";
 			
-			String s=className.substring(0, className.indexOf(companionMarker)+companionMarker.length());
+			int    end=className.indexOf(companionMarker)+companionMarker.length();
+			String s  =className.length() >= end?className.substring(0, end):className;
 			
 			if(s.endsWith(companionMarker)){
 				try{

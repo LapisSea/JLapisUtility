@@ -131,7 +131,7 @@ public class Rand{
 	}
 	
 	@NotNull
-	public static short[] is(short count, short max){
+	public static short[] is(int count, short max){
 		short[] arr=new short[count];
 		for(int i=0;i<arr.length;i++){
 			arr[i]=i(max);
@@ -140,7 +140,7 @@ public class Rand{
 	}
 	
 	@NotNull
-	public static short[] is(short count, short min, short max){
+	public static short[] is(int count, short min, short max){
 		short[] arr=new short[count];
 		for(int i=0;i<arr.length;i++){
 			arr[i]=i(min, max);
@@ -149,7 +149,7 @@ public class Rand{
 	}
 	
 	@NotNull
-	public static byte[] is(byte count, byte max){
+	public static byte[] is(int count, byte max){
 		byte[] arr=new byte[count];
 		for(int i=0;i<arr.length;i++){
 			arr[i]=i(max);
@@ -158,7 +158,7 @@ public class Rand{
 	}
 	
 	@NotNull
-	public static byte[] is(byte count, byte min, byte max){
+	public static byte[] is(int count, byte min, byte max){
 		byte[] arr=new byte[count];
 		for(int i=0;i<arr.length;i++){
 			arr[i]=i(min, max);

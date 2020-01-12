@@ -10,8 +10,8 @@ public class AsynchronousBufferingInputStream extends InputStream{
 	
 	
 	private static final double SLEEP_START                   =0.1;
-	private static final int    DEFAULT_CHUNK_SIZE            =1024*10;
-	private static final int    DEFAULT_MAX_MEMORY_CONSUMPTION=DEFAULT_CHUNK_SIZE*64;
+	public static final  int    DEFAULT_CHUNK_SIZE            =1024*10;
+	public static final  int    DEFAULT_MAX_MEMORY_CONSUMPTION=DEFAULT_CHUNK_SIZE*64;
 	
 	/**
 	 * Use as compiler warning for pointless call
@@ -157,7 +157,6 @@ public class AsynchronousBufferingInputStream extends InputStream{
 				push(bb);
 			}
 		}catch(Throwable e){
-			e.printStackTrace();
 			UtilL.closeSilenty(in);
 			reading=false;
 		}finally{
