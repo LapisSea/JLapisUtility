@@ -264,7 +264,7 @@ public class TextUtil{
 		}
 		
 		for(Field f : c.getFields()){
-			if(isPrivate(f.getModifiers())||isProtected(f.getModifiers())||isStatic(f.getModifiers())) continue;
+			if(isPrivate(f.getModifiers())||isProtected(f.getModifiers())||isStatic(f.getModifiers())||isTransient(f.getModifiers())) continue;
 			String name=f.getName();
 			
 			try{
@@ -448,6 +448,10 @@ public class TextUtil{
 	}
 	
 	public static boolean TABLE_BOOLEAN_TO_CHECK=true;
+	
+	public static String toTable(Object... rows){
+		return toTable(Arrays.asList(rows));
+	}
 	
 	public static String toTable(Iterable<?> rows){
 		Class type=StreamSupport.stream(rows.spliterator(), false)
