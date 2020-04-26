@@ -815,7 +815,9 @@ public class UtilL{
 	}
 	
 	public static void Assert(boolean condition){
-		if(!condition) throw new AssertionError();
+		if(!condition){
+			throw new AssertionError();
+		}
 	}
 	
 	public static void Assert(boolean condition, Object... message){

@@ -6,6 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+@SuppressWarnings("unchecked")
 public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashMap<K, V, SELF>> implements Map<K, V>{
 	
 	public interface DeletingValueEntry<K, T>{
@@ -22,6 +23,8 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	private transient Keys     keys;
 	private transient Values   values;
 	private transient EntrySet entries;
+	
+	private transient long policy=-1;
 	
 	
 	public DeletingValueHashMap(int initialCapacity, float loadFactor){
@@ -48,11 +51,17 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	public SELF defineStayAlivePolicy(long delay, TimeUnit unit){
 		if(delay<0) throw new IllegalArgumentException("ms less than 0");
+		
+		long newPolicy=unit.toNanos(delay);
+		if(newPolicy==policy) return (SELF)this;
+		policy=newPolicy;
+		
 		boolean triggerMassHolding=stayAlive==null&&delay>0;
 		
 		ScheduledThreadPoolExecutor scheduler=new ScheduledThreadPoolExecutor(1);
 		scheduler.setKeepAliveTime(10, TimeUnit.SECONDS);
 		scheduler.allowCoreThreadTimeOut(true);
+		
 		
 		if(delay>0) stayAlive=command->scheduler.schedule(command, delay, unit);
 		else stayAlive=null;
@@ -63,7 +72,6 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 			}
 		}
 		
-		//noinspection unchecked
 		return (SELF)this;
 	}
 	

@@ -1,6 +1,7 @@
 package com.lapissea.util;
 
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class PairM<Obj1, Obj2>{
 	
@@ -48,5 +49,10 @@ public class PairM<Obj1, Obj2>{
 	
 	public Obj2 get2(){
 		return obj2;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <B> Stream<B> stream(){
+		return Stream.of((B)obj1, (B)obj2);
 	}
 }

@@ -1,5 +1,6 @@
 package com.lapissea.util;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -9,6 +10,7 @@ import java.util.function.*;
 import java.util.stream.*;
 
 import static com.lapissea.util.UtilL.*;
+import static java.lang.Character.*;
 import static java.lang.reflect.Modifier.*;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -44,7 +46,7 @@ public class TextUtil{
 		}
 		
 		@SuppressWarnings("unchecked")
-		private <T> void register(@NotNull Predicate<Class<T>> checkExact, @NotNull Predicate<Class<T>> check, @NotNull Function<T, String> toString){
+		public <T> void register(@NotNull Predicate<Class<T>> checkExact, @NotNull Predicate<Class<T>> check, @NotNull Function<T, String> toString){
 			overrides.add(new ToStringNode((Predicate<Class>)((Object)checkExact), (Predicate<Class>)((Object)check), (Function<Object, String>)toString));
 		}
 		
@@ -153,10 +155,34 @@ public class TextUtil{
 		
 		Supplier<CustomToString> collectionTS=()->USE_SHORT_IN_COLLECTIONS?SHORT_TO_STRINGS:CUSTOM_TO_STRINGS;
 		
-		CUSTOM_TO_STRINGS.register(Stream.class, stream->Arrays.toString(stream.map(collectionTS.get()::toString).toArray()));
-		CUSTOM_TO_STRINGS.register(IntStream.class, stream->toString(stream.toArray()));
-		CUSTOM_TO_STRINGS.register(DoubleStream.class, stream->toString(stream.toArray()));
-		CUSTOM_TO_STRINGS.register(LongStream.class, stream->toString(stream.toArray()));
+		CUSTOM_TO_STRINGS.register(Stream.class, stream->{
+			try{
+				return Arrays.toString(stream.map(collectionTS.get()::toString).toArray());
+			}finally{
+				stream.close();
+			}
+		});
+		CUSTOM_TO_STRINGS.register(IntStream.class, stream->{
+			try{
+				return toString(stream.toArray());
+			}finally{
+				stream.close();
+			}
+		});
+		CUSTOM_TO_STRINGS.register(DoubleStream.class, stream->{
+			try{
+				return toString(stream.toArray());
+			}finally{
+				stream.close();
+			}
+		});
+		CUSTOM_TO_STRINGS.register(LongStream.class, stream->{
+			try{
+				return toString(stream.toArray());
+			}finally{
+				stream.close();
+			}
+		});
 		
 		CUSTOM_TO_STRINGS.register(Collection.class, col->{
 			Iterator<?> it=col.iterator();
@@ -252,8 +278,8 @@ public class TextUtil{
 			}
 			
 			char ch=name.charAt(prefix);
-			if(!Character.isAlphabetic(ch)||!Character.isUpperCase(ch)) continue;
-			name=firstToLoverCase(name.substring(prefix));
+			if(!Character.isAlphabetic(ch)||!isUpperCase(ch)) continue;
+			name=firstToLowerCase(name.substring(prefix));
 			
 			try{
 				m.setAccessible(true);
@@ -264,7 +290,11 @@ public class TextUtil{
 		}
 		
 		for(Field f : c.getFields()){
-			if(isPrivate(f.getModifiers())||isProtected(f.getModifiers())||isStatic(f.getModifiers())||isTransient(f.getModifiers())) continue;
+			if(isPrivate(f.getModifiers())||
+			   isProtected(f.getModifiers())||
+			   isStatic(f.getModifiers())||
+			   isTransient(f.getModifiers())) continue;
+			
 			String name=f.getName();
 			
 			try{
@@ -386,7 +416,18 @@ public class TextUtil{
 			
 			
 			if(o.getClass().isArray()){
-				o=Arrays.asList((Object[])o);
+				Object oarr=o;
+				o=new AbstractList<Object>(){
+					@Override
+					public int size(){
+						return Array.getLength(oarr);
+					}
+					
+					@Override
+					public Object get(int index){
+						return Array.get(oarr, index);
+					}
+				};
 			}
 			
 			if(o instanceof Collection){
@@ -449,8 +490,16 @@ public class TextUtil{
 	
 	public static boolean TABLE_BOOLEAN_TO_CHECK=true;
 	
+	public static String toTable(String title, Object... rows){
+		return toTable(title, Arrays.asList(rows));
+	}
+	
 	public static String toTable(Object... rows){
 		return toTable(Arrays.asList(rows));
+	}
+	
+	public static String toTable(Stream<?> rows){
+		return toTable(rows.toArray());
 	}
 	
 	public static String toTable(Iterable<?> rows){
@@ -795,20 +844,24 @@ public class TextUtil{
 	}
 	
 	@Nullable
-	public static String firstToLoverCase(@Nullable String string){
-		if(string==null||string.isEmpty()) return string;
+	public static String firstToLowerCase(@Nullable String string){
+		if(string==null||
+		   string.isEmpty()||
+		   isLowerCase(string.charAt(0))) return string;
 		
 		char[] c=string.toCharArray();
-		c[0]=Character.toLowerCase(c[0]);
+		c[0]=toLowerCase(c[0]);
 		return new String(c);
 	}
 	
 	@Nullable
 	public static String firstToUpperCase(@Nullable String string){
-		if(string==null||string.isEmpty()) return string;
+		if(string==null||
+		   string.isEmpty()||
+		   isUpperCase(string.charAt(0))) return string;
 		
 		char[] c=string.toCharArray();
-		c[0]=Character.toUpperCase(c[0]);
+		c[0]=toUpperCase(c[0]);
 		return new String(c);
 	}
 	
