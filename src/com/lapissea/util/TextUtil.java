@@ -1,9 +1,7 @@
 package com.lapissea.util;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.*;
 import java.nio.*;
 import java.util.*;
 import java.util.function.*;
@@ -13,57 +11,76 @@ import static com.lapissea.util.UtilL.*;
 import static java.lang.Character.*;
 import static java.lang.reflect.Modifier.*;
 
-@SuppressWarnings({"unchecked", "rawtypes"})
 public class TextUtil{
 	
 	public static final class CustomToString{
 		
-		private static class ToStringNode{
-			private final Predicate<Class>         checkExact;
-			private final Predicate<Class>         check;
-			private final Function<Object, String> toString;
+		private static class ToStringNode<T>{
+			private final Predicate<Class<?>> checkExact;
+			private final Predicate<Class<?>> check;
+			private final Function<T, String> toString;
 			
-			private ToStringNode(Predicate<Class> checkExact, Predicate<Class> check, Function<Object, String> toString){
+			private ToStringNode(Predicate<Class<?>> checkExact, Predicate<Class<?>> check, Function<T, String> toString){
 				this.checkExact=checkExact;
 				this.check=check;
 				this.toString=toString;
 			}
+			
+			private String toString(T t)          { return toString.apply(t); }
+			
+			private boolean checkExact(Class<?> o){ return checkExact.test(o); }
+			
+			private boolean check(Class<?> o)     { return check.test(o); }
 		}
 		
-		private final List<ToStringNode>       overrides=new ArrayList<>();
+		private final List<ToStringNode<?>>    overrides=new ArrayList<>();
 		private final Function<Object, String> fallback;
 		
 		private CustomToString(Function<Object, String> fallback){
 			this.fallback=fallback;
 		}
 		
-		public <T> void register(@NotNull Class<T> type, @NotNull Function<T, String> toString){
+		public <T> void register(@NotNull Class<T> type, @NotNull Function<? extends T, String> toString){
+			Objects.requireNonNull(type);
+			Objects.requireNonNull(toString);
+			
 			register(t->t==type, t->instanceOf(t, type), toString);
 		}
 		
-		public <T> void register(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> toString){
+		public <T> void register(@NotNull Predicate<Class<?>> canStringify, @NotNull Function<?, String> toString){
+			Objects.requireNonNull(canStringify);
+			Objects.requireNonNull(toString);
+			
 			register(t->false, canStringify, toString);
 		}
 		
-		@SuppressWarnings("unchecked")
-		public <T> void register(@NotNull Predicate<Class<T>> checkExact, @NotNull Predicate<Class<T>> check, @NotNull Function<T, String> toString){
-			overrides.add(new ToStringNode((Predicate<Class>)((Object)checkExact), (Predicate<Class>)((Object)check), (Function<Object, String>)toString));
+		public void register(@NotNull Predicate<Class<?>> checkExact, @NotNull Predicate<Class<?>> check, @NotNull Function<?, String> toString){
+			Objects.requireNonNull(checkExact);
+			Objects.requireNonNull(check);
+			Objects.requireNonNull(toString);
+			
+			overrides.add(new ToStringNode<>(
+				checkExact,
+				check,
+				toString)
+			);
 		}
 		
-		public String toString(Object obj){
+		@SuppressWarnings("unchecked")
+		public <T> String toString(T obj){
 			if(obj==null) return "null";
 			
 			Class<?> type=obj.getClass();
 			
-			for(ToStringNode e : overrides){
-				if(e.checkExact.test(type)){
-					return e.toString.apply(obj);
+			for(ToStringNode<?> e : overrides){
+				if(e.checkExact(type)){
+					return ((ToStringNode<T>)e).toString(obj);
 				}
 			}
 			
-			for(ToStringNode e : overrides){
-				if(e.check.test(type)){
-					return e.toString.apply(obj);
+			for(ToStringNode<?> e : overrides){
+				if(e.check(type)){
+					return ((ToStringNode<T>)e).toString(obj);
 				}
 			}
 			
@@ -78,6 +95,10 @@ public class TextUtil{
 	 * toShortString, toTableString
 	 */
 	public static       boolean IMPLY_TO_STRINGS        =true;
+	/**
+	 * see {@link #toTable(String, Collection)}
+	 */
+	public static       boolean TABLE_BOOLEAN_TO_CHECK  =true;
 	
 	public static final CustomToString CUSTOM_TO_STRINGS  =new CustomToString(TextUtil::enhancedToString);
 	public static final CustomToString SHORT_TO_STRINGS   =new CustomToString(CUSTOM_TO_STRINGS::toString);
@@ -87,16 +108,17 @@ public class TextUtil{
 	 * replace with CUSTOM_TO_STRINGS.register()
 	 */
 	@Deprecated
-	public static <T> void registerCustomToString(@NotNull Class<T> type, @NotNull Function<T, String> funct){
-		CUSTOM_TO_STRINGS.register(type, funct);
+	public static <T> void registerCustomToString(@NotNull Class<T> type, @NotNull Function<T, String> toString){
+		CUSTOM_TO_STRINGS.register(type, toString);
 	}
 	
 	/**
 	 * replace with CUSTOM_TO_STRINGS.register()
 	 */
+	@SuppressWarnings("unchecked")
 	@Deprecated
-	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> funct){
-		CUSTOM_TO_STRINGS.register(canStringify, funct);
+	public static <T> void registerCustomToString(@NotNull Predicate<Class<T>> canStringify, @NotNull Function<T, String> toString){
+		CUSTOM_TO_STRINGS.register((Predicate<Class<?>>)(Object)canStringify, toString);
 	}
 	
 	static{
@@ -153,9 +175,9 @@ public class TextUtil{
 			return print.toString();
 		});
 		
-		Supplier<CustomToString> collectionTS=()->USE_SHORT_IN_COLLECTIONS?SHORT_TO_STRINGS:CUSTOM_TO_STRINGS;
+		final Supplier<CustomToString> collectionTS=()->USE_SHORT_IN_COLLECTIONS?SHORT_TO_STRINGS:CUSTOM_TO_STRINGS;
 		
-		CUSTOM_TO_STRINGS.register(Stream.class, stream->{
+		CUSTOM_TO_STRINGS.register(Stream.class, (Stream<?> stream)->{
 			try{
 				return Arrays.toString(stream.map(collectionTS.get()::toString).toArray());
 			}finally{
@@ -199,7 +221,7 @@ public class TextUtil{
 			}
 		});
 		
-		CUSTOM_TO_STRINGS.register(Map.class, map->{
+		CUSTOM_TO_STRINGS.register(Map.class, (Map<?, ?> map)->{
 			Iterator<? extends Map.Entry<?, ?>> i=map.entrySet().iterator();
 			if(!i.hasNext())
 				return "{}";
@@ -219,7 +241,7 @@ public class TextUtil{
 			}
 		});
 		
-		BiPredicate<Class<?>, String> checkImply=(c, name)->IMPLY_TO_STRINGS&&getOverrides(c).get(name);
+		BiPredicate<Class<?>, String> checkImply=(c, name)->IMPLY_TO_STRINGS&&getOverrides(c).contains(name);
 		BiFunction<Object, String, String> doImply=(obj, name)->{
 			try{
 				String val=(String)obj.getClass().getMethod(name).invoke(obj);
@@ -232,6 +254,52 @@ public class TextUtil{
 		
 		SHORT_TO_STRINGS.register(c->checkImply.test(c, "toShortString"), obj->doImply.apply(obj, "toShortString"));
 		IN_TABLE_TO_STRINGS.register(c->checkImply.test(c, "toTableString"), obj->doImply.apply(obj, "toTableString"));
+		
+		Function<Class<?>, StringBuilder> nestedSimpleClass=clazz->{
+			
+			StringBuilder result=new StringBuilder();
+			
+			List<Class<?>> stack=new LinkedList<>();
+			Class<?>       typ  =clazz;
+			while(typ!=null){
+				stack.add(0, typ);
+				typ=typ.getDeclaringClass();
+			}
+			
+			for(int i=0;i<stack.size();i++){
+				result.append(stack.get(i).getSimpleName());
+				if(i+1<stack.size()) result.append('.');
+			}
+			return result;
+		};
+		
+		CUSTOM_TO_STRINGS.register(c->instanceOf(c, Annotation.class), an->{
+			Annotation ann=(Annotation)an;
+			
+			StringBuilder result=nestedSimpleClass.apply(ann.annotationType());
+			
+			result.append('{');
+			result.append(mapObjectValues(an).entrySet()
+			                                 .stream()
+			                                 .map(e->toString(e.getKey())+": "+toString(e.getValue()))
+			                                 .collect(Collectors.joining(", ")));
+			result.append('}');
+			
+			return result.toString();
+		});
+		
+		
+		BiFunction<Class<?>, Function<Class<?>, String>, String> classString=(clazz, toString)->{
+			if(instanceOf(clazz, Annotation.class)&&Proxy.isProxyClass(clazz)){
+				//noinspection unchecked
+				return toString.apply(UtilL.getAnnotationInterface((Class<Annotation>)clazz));
+			}
+			return clazz.toString();
+		};
+		
+		
+		CUSTOM_TO_STRINGS.register(Class.class, clazz->classString.apply(clazz, c->"@interface "+c.getName()));
+		SHORT_TO_STRINGS.register(Class.class, clazz->classString.apply(clazz, c->nestedSimpleClass.apply(c).toString()));
 	}
 	
 	@NotNull
@@ -255,10 +323,60 @@ public class TextUtil{
 		return map;
 	}
 	
+	private static final Predicate<Object> IS_RECORD;
+	
+	static{
+		Predicate<Object> isRecordTmp=o->false;
+		try{
+			Method isRecord=Class.class.getMethod("isRecord");
+			isRecordTmp=obj->{
+				try{
+					return (boolean)isRecord.invoke(obj.getClass());
+				}catch(ReflectiveOperationException e){
+					return false;
+				}
+			};
+		}catch(ReflectiveOperationException ignored){ }
+		
+		IS_RECORD=isRecordTmp;
+	}
+	
+	private static boolean isRecord(Object obj){
+		return IS_RECORD.test(obj);
+	}
+	
 	public static void mapObjectValues(Object o, @NotNull BiConsumer<String, Object> push){
 		if(o==null) return;
+		Class<?> c=o.getClass();
 		
-		Class c=o.getClass();
+		boolean isAnnotation=o instanceof Annotation;
+		if(isAnnotation||isRecord(o)){
+			for(Method m : (isAnnotation?((Annotation)o).annotationType():c).getMethods()){
+				if(m.getParameterCount()!=0) continue;
+				if(isStatic(m.getModifiers())) continue;
+				
+				if(isAnnotation){
+					if(m.getName().equals("annotationType")) continue;
+				}else{
+					if(m.getDeclaringClass()!=c) continue;
+				}
+				
+				try{
+					c.getSuperclass().getMethod(m.getName());
+					continue;
+				}catch(NoSuchMethodException ignored){}
+				
+				try{
+					m.setAccessible(true);
+					push.accept(m.getName(), m.invoke(o));
+				}catch(Throwable e){
+					push.accept(m.getName(), "<read error>");
+				}
+			}
+			return;
+		}
+		
+		
 		for(Method m : c.getMethods()){
 			if(m.getParameterCount()!=0) continue;
 			if(isPrivate(m.getModifiers())||isProtected(m.getModifiers())||isStatic(m.getModifiers())) continue;
@@ -307,7 +425,7 @@ public class TextUtil{
 	}
 	
 	@NotNull
-	private static String unknownArrayToString(@Nullable Object arr){
+	public static String unknownArrayToString(@Nullable Object arr){
 		if(arr==null) return "null";
 		if(arr instanceof boolean[]) return Arrays.toString((boolean[])arr);
 		if(arr instanceof float[]) return Arrays.toString((float[])arr);
@@ -330,8 +448,19 @@ public class TextUtil{
 		if(arr instanceof short[]) return Arrays.toString((short[])arr);
 		if(arr instanceof char[]) return Arrays.toString((char[])arr);
 		if(arr instanceof double[]) return Arrays.toString((double[])arr);
-		if(arr instanceof Object[]) return toStringArray((Object[])arr);
-		return "ERR: "+arr;
+		
+		int len=Array.getLength(arr);
+		if(len==0) return "[]";
+		
+		int iMax=len-1;
+		
+		StringBuilder b=new StringBuilder();
+		b.append('[');
+		for(int i=0;;i++){
+			b.append(toString(Array.get(arr, i)));
+			if(i==iMax) return b.append(']').toString();
+			b.append(", ");
+		}
 	}
 	
 	@NotNull
@@ -343,36 +472,40 @@ public class TextUtil{
 			Object a=objs[i];
 			if(isArray(a)) print.append(unknownArrayToString(a));
 			else print.append(toString(a));
-			if(i!=objs.length-1) print.append(" ");
+			if(i!=objs.length-1) print.append(' ');
 		}
 		
 		return print.toString();
 	}
 	
 	@NotNull
-	public static String toString(@Nullable Object obj){
-		return CUSTOM_TO_STRINGS.toString(obj);
-	}
+	public static String toString(@Nullable Object obj){ return CUSTOM_TO_STRINGS.toString(obj); }
+	@NotNull
+	public static String toShortString(@Nullable Object obj){ return SHORT_TO_STRINGS.toString(obj); }
+	@NotNull
+	public static String toTableString(@Nullable Object obj){ return IN_TABLE_TO_STRINGS.toString(obj); }
 	
 	
-	private static final Stack<Object> JSON_CALL_STACK=new Stack<>();
+	private static final ThreadLocal<Deque<Object>> JSON_CALL_STACK=ThreadLocal.withInitial(LinkedList::new);
 	
 	public static String toNamedJson(Object o){
 		
-		JSON_CALL_STACK.push(o);
+		Deque<Object> callStack=JSON_CALL_STACK.get();
+		
+		callStack.push(o);
 		try{
 			if(o==null) return "null";
 			if(o instanceof Number) return o.toString();
 			
-			Class c=o.getClass();
+			Class<?> c=o.getClass();
 			
 			if(c==Boolean.class) return o.toString();
 			
-			Map<String, String> data=new HashMap<>();
+			Map<String, String> data=new LinkedHashMap<>();
 			
 			mapObjectValues(o, (name, obj)->{
 				if(!JSON_NULL_PRINT&&obj==null) return;
-				if(JSON_CALL_STACK.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
+				if(callStack.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
 				if(obj instanceof String){
 					obj="\""+((String)obj).replace("\n", "\\n").replace("\r", "\\r")+'"';
 				}
@@ -381,17 +514,17 @@ public class TextUtil{
 			
 			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
 			
-			return c.getSimpleName()+"{"+data.entrySet().stream().map(Object::toString).collect(Collectors.joining(", "))+"}";
+			return c.getSimpleName()+"{"+data.entrySet().stream().map(e->toString(e.getKey())+": "+toString(e.getValue())).collect(Collectors.joining(", "))+"}";
 			
 		}finally{
-			JSON_CALL_STACK.pop();
+			callStack.pop();
 		}
 		
 	}
 	
-	private static final Stack<Object> PRETTY_JSON_CALL_STACK=new Stack<>();
-	private static final String        TAB                   ="    ";
-	private static final int           MAX_SINGLE_LINE_ARRAY =150;
+	private static final ThreadLocal<Deque<Object>> PRETTY_JSON_CALL_STACK=ThreadLocal.withInitial(LinkedList::new);
+	private static final String                     TAB                   ="    ";
+	private static final int                        MAX_SINGLE_LINE_ARRAY =150;
 	
 	public static String toNamedPrettyJson(Object o){
 		return toNamedPrettyJson(o, false);
@@ -400,22 +533,30 @@ public class TextUtil{
 	public static String toNamedPrettyJson(Object o, boolean tryTabulatingArrays){
 		if(o==null) return "null";
 		
-		if(PRETTY_JSON_CALL_STACK.contains(o)) return "<circular reference of "+o.getClass().getSimpleName()+">";
-		if(o instanceof CharSequence||o instanceof Number) return o.toString();
+		Deque<Object> callStack=PRETTY_JSON_CALL_STACK.get();
+		
+		if(callStack.contains(o)) return "<circular reference of "+o.getClass().getSimpleName()+">";
+		if(o instanceof CharSequence||o instanceof Number) return toString(o);
 		if(o instanceof Class) return ((Class<?>)o).getSimpleName();
 		
 		Class<?> c=o.getClass();
 		
 		if(c==Boolean.class) return o.toString();
 		
-		PRETTY_JSON_CALL_STACK.push(o);
+		callStack.push(o);
 		try{
+			Predicate<Object> shouldStringify=o1->overridesToString(o1.getClass())&&
+			                                      !(o1 instanceof Collection)&&
+			                                      !(o1 instanceof BaseStream)&&
+			                                      !(o1 instanceof Map)&&
+			                                      !isRecord(o1);
 			
-			Function<String, String> tabulate      =s->s.replace("\n", "\n"+TAB);
-			Function<Object, String> lazyTabbedJson=o1->tabulate.apply(overridesToString(o1.getClass())&&!(o1 instanceof Collection)?o1.toString():toNamedPrettyJson(o1, tryTabulatingArrays));
+			Function<String, String> tabulate            =s->s.replace("\n", "\n"+TAB);
+			Function<Object, String> lazyTabbedPrettyJson=o1->tabulate.apply(shouldStringify.test(o1)?toString(o1):toNamedPrettyJson(o1, tryTabulatingArrays));
+			Function<Object, String> lazyTabbedJson      =o1->tabulate.apply(shouldStringify.test(o1)?toString(o1):toNamedJson(o1));
 			
 			
-			if(o.getClass().isArray()){
+			if(c.isArray()){
 				Object oarr=o;
 				o=new AbstractList<Object>(){
 					@Override
@@ -430,18 +571,27 @@ public class TextUtil{
 				};
 			}
 			
+			if(o instanceof BaseStream){
+				try(BaseStream<?, ?> stream=(BaseStream<?, ?>)o){
+					Iterator<?> iter;
+					try{
+						iter=stream.iterator();
+						
+						LinkedList<Object> data=new LinkedList<>();
+						iter.forEachRemaining(data::add);
+						o=data;
+					}catch(IllegalStateException ignored){}
+				}
+			}
+			
 			if(o instanceof Collection){
 				Collection<?> l=(Collection<?>)o;
+				if(l.isEmpty()) return "[]";
 				
 				tabulator:
 				if(tryTabulatingArrays){
-					if(l.isEmpty()) break tabulator;
 					
-					Class<?> unifyingClass=l.stream()
-					                        .filter(Objects::nonNull)
-					                        .map(o1->(Class)o1.getClass())
-					                        .reduce(UtilL::findClosestCommonSuper)
-					                        .orElse(Object.class);
+					Class<?> unifyingClass=UtilL.findObjectClosestCommonSuper(l);
 					
 					if(unifyingClass==Object.class) break tabulator; //not same classes so can't tabulate
 					if(overridesToString(unifyingClass)) break tabulator; //overrides to string so it's better not to generate table
@@ -449,46 +599,48 @@ public class TextUtil{
 					return "{{\n"+toTable(" "+unifyingClass.getSimpleName()+" ", l.stream().map(TextUtil::mapObjectValues).collect(Collectors.toList()))+"}}";
 				}
 				
-				String contents=l.stream().map(lazyTabbedJson).collect(Collectors.joining(",\n"+TAB));
-				if(contents.length()<MAX_SINGLE_LINE_ARRAY) return tabulate.apply(toString(o));
+				Function<Function<Object, String>, String> arrayToString=fun->l.stream().map(fun).collect(Collectors.joining(",\n"+TAB));
+				
+				String contents=arrayToString.apply(lazyTabbedPrettyJson);
+				if(!contents.isEmpty()&&contents.length()<MAX_SINGLE_LINE_ARRAY){
+					contents=arrayToString.apply(lazyTabbedJson);
+				}
 				
 				return "[\n"+TAB+contents+"\n]";
 			}
 			
 			if(o instanceof Map){
-				Map<?, ?> l=(Map)o;
+				Map<?, ?> l=(Map<?, ?>)o;
 				
 				StringBuilder sb=new StringBuilder("[\n");
 				
-				for(Map.Entry o1 : l.entrySet()){
-					sb.append(TAB).append(toString(o1.getKey())).append(": ").append(lazyTabbedJson.apply(o1.getValue())).append(",\n");
+				for(Map.Entry<?, ?> o1 : l.entrySet()){
+					sb.append(TAB).append(toString(o1.getKey())).append(": ").append(lazyTabbedPrettyJson.apply(o1.getValue())).append(",\n");
 				}
 				
 				return sb.append(']').toString();
 			}
 			
-			Map<String, String> data=new HashMap<>();
+			Map<String, String> data=new LinkedHashMap<>();
 			
 			mapObjectValues(o, (name, obj)->{
 				if(!JSON_NULL_PRINT&&obj==null) return;
-				if(PRETTY_JSON_CALL_STACK.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
+				if(callStack.contains(obj)) obj="<circular reference of "+obj.getClass().getSimpleName()+">";
 				if(obj instanceof String){
 					obj="\""+((String)obj).replace("\n", "\\n").replace("\r", "\\r")+'"';
 				}
-				data.put(name, lazyTabbedJson.apply(obj));
+				data.put(name, lazyTabbedPrettyJson.apply(obj));
 			});
 			
 			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
 			
-			return c.getSimpleName()+"{\n"+TAB+data.entrySet().stream().map(ob->tabulate.apply(ob.toString())).collect(Collectors.joining(",\n"+TAB))+"\n}";
+			return c.getSimpleName()+"{\n"+TAB+data.entrySet().stream().map(e->toString(e.getKey())+": "+lazyTabbedPrettyJson.apply(e.getValue())).collect(Collectors.joining(",\n"+TAB))+"\n}";
 			
 		}finally{
-			PRETTY_JSON_CALL_STACK.pop();
+			callStack.pop();
 		}
 		
 	}
-	
-	public static boolean TABLE_BOOLEAN_TO_CHECK=true;
 	
 	public static String toTable(String title, Object... rows){
 		return toTable(title, Arrays.asList(rows));
@@ -503,11 +655,7 @@ public class TextUtil{
 	}
 	
 	public static String toTable(Iterable<?> rows){
-		Class type=StreamSupport.stream(rows.spliterator(), false)
-		                        .filter(Objects::nonNull)
-		                        .map(o->(Class)o.getClass())
-		                        .reduce(UtilL::findClosestCommonSuper)
-		                        .orElse(Object.class);
+		Class<?> type=UtilL.findObjectClosestCommonSuper(StreamSupport.stream(rows.spliterator(), false));
 		
 		return toTable(type==Object.class?"":type.getSimpleName(), rows);
 	}
@@ -607,7 +755,9 @@ public class TextUtil{
 		
 		int width=columnWidths.values().stream().mapToInt(i->i+1).sum()+1;
 		
+		
 		int titleRequiredWidth=title.length()+4;
+		
 		while(titleRequiredWidth>width){
 			int diff       =titleRequiredWidth-width;
 			int columnCount=columnWidths.size();
@@ -622,6 +772,10 @@ public class TextUtil{
 				columnWidths.entrySet().stream().limit(diff).forEach(e->e.setValue(e.getValue()+1));
 				width+=diff;
 			}
+		}
+		
+		if(titleRequiredWidth+2<=width){
+			title=" "+title+" ";
 		}
 		
 		BiFunction<Integer, String, String> printCell=(len, val)->{
@@ -643,7 +797,9 @@ public class TextUtil{
 		
 		String line=stringFill(width, lineChar);
 		
-		StringBuilder result=new StringBuilder((line.length()+1)*safe.size());
+		int size=(line.length()+1)*safe.size();
+		
+		StringBuilder result=new StringBuilder(size);
 		
 		int titleFreeSpace=width-title.length();
 		
@@ -667,43 +823,48 @@ public class TextUtil{
 		
 		result.append(line);
 		
+		
 		return result.toString();
 	}
 	
-	private static final Map<Class<?>, Map<String, Boolean>> CLASS_CACHE=new HashMap<>();
+	private static final Map<Class<?>, List<String>> OVERRIDE_FUNCTION_CACHE=new HashMap<>();
 	
-	@SuppressWarnings("AutoBoxing")
-	private static synchronized Map<String, Boolean> getOverrides(Class<?> cl){
-		return CLASS_CACHE.computeIfAbsent(cl, c->{
-			Map<String, Boolean> result=new HashMap<>(3);
+	private static synchronized List<String> getOverrides(Class<?> cl){
+		return OVERRIDE_FUNCTION_CACHE.computeIfAbsent(cl, c->{
+			List<String> result=new ArrayList<>(3);
 			
-			Consumer<String> add=name->{
-				boolean hasFun;
+			Consumer<String> addExisting=name->{
 				try{
 					Method m   =c.getMethod(name);
 					int    mods=m.getModifiers();
-					hasFun=Modifier.isPublic(mods)&&
-					       !Modifier.isStatic(mods)&&
-					       m.getReturnType()==String.class&&
-					       m.getParameterCount()==0;
-				}catch(NoSuchMethodException e){
-					hasFun=false;
-				}
-				result.put(name, hasFun);
+					
+					if(Modifier.isPublic(mods)&&
+					   !Modifier.isStatic(mods)&&
+					   m.getReturnType()==String.class&&
+					   m.getParameterCount()==0){
+						result.add(name);
+					}
+					
+				}catch(NoSuchMethodException ignored){ }
 			};
 			
-			try{
-				result.put("toString", c.getMethod("toString").getDeclaringClass()!=Object.class);
-			}catch(NoSuchMethodException ignored){}
+			BiConsumer<String, Class<?>> addOverriding=(name, base)->{
+				try{
+					if(c.getMethod(name).getDeclaringClass()!=base) result.add(name);
+				}catch(NoSuchMethodException ignored){}
+			};
 			
-			add.accept("toShortString");
-			add.accept("toTableString");
-			return result;
+			addOverriding.accept("toString", Object.class);
+			addExisting.accept("toShortString");
+			addExisting.accept("toTableString");
+			
+			
+			return ArrayViewList.create(result.toArray(ZeroArrays.ZERO_STRING), null);
 		});
 	}
 	
 	public static synchronized boolean overridesToString(Class<?> cl){
-		return getOverrides(cl).get("toString");
+		return getOverrides(cl).contains("toString");
 	}
 	
 	public static String enhancedToString(Object o){
@@ -794,7 +955,7 @@ public class TextUtil{
 		for(int i=0;i<str.length();i++){
 			char c=str.charAt(i);
 			
-			if(line.length() >= width){
+			if(line.length()>=width){
 				
 				int lastSpace=line.length()-1;
 				while(lastSpace>0&&Character.isWhitespace(line.charAt(lastSpace-1))) lastSpace--;
@@ -932,7 +1093,7 @@ public class TextUtil{
 		char firstLo=Character.toLowerCase(what.charAt(0));
 		char firstUp=Character.toUpperCase(what.charAt(0));
 		
-		for(int i=src.length()-length;i >= 0;i--){
+		for(int i=src.length()-length;i>=0;i--){
 			final char ch=src.charAt(i);
 			if(ch!=firstLo&&ch!=firstUp) continue;
 			

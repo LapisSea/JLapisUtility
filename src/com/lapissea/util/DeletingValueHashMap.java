@@ -277,7 +277,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 						Entry<K, DeletingValueEntry<K, V>> n  =iter.next();
 						DeletingValueEntry<K, V>           ref=n.getValue();
 						if(ref==null||ref.get()==null){
-							processQueue();
+							iter.remove();
 							continue;
 						}
 						next=n;

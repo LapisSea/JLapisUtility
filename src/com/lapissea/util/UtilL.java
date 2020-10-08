@@ -4,6 +4,7 @@ import com.lapissea.util.function.IntIntConsumer;
 import com.lapissea.util.function.UnsafeConsumer;
 
 import java.io.*;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -272,6 +273,25 @@ public class UtilL{
 		return compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC >> 8);
 	}
 	
+	
+	public static Class<?> findObjectClosestCommonSuper(@NotNull Collection<?> objects){
+		return findObjectClosestCommonSuper(objects.stream());
+	}
+	
+	public static Class<?> findObjectClosestCommonSuper(@NotNull Stream<?> objects){
+		return findClosestCommonSuper(objects.filter(Objects::nonNull)
+		                                     .map(Object::getClass));
+	}
+	
+	public static Class<?> findClosestCommonSuper(@NotNull Collection<Class<?>> classes){
+		return findClosestCommonSuper(classes.stream());
+	}
+	
+	public static Class<?> findClosestCommonSuper(@NotNull Stream<Class<?>> classes){
+		return classes.reduce(UtilL::findClosestCommonSuper)
+		              .orElse(Object.class);
+	}
+	
 	@NotNull
 	public static Class<?> findClosestCommonSuper(@NotNull Class<?> a, @NotNull Class<?> b){
 		if(a==b) return a;
@@ -347,6 +367,22 @@ public class UtilL{
 	
 	public static <T> void forEach(@NotNull T[] ts, @NotNull Consumer<T> consumer){
 		for(T t : ts) consumer.accept(t);
+	}
+	
+	public static void sleepUntil(@NotNull BooleanSupplier checkUntil){
+		sleepUntil(checkUntil, 1);
+	}
+	
+	public static void sleepUntil(@NotNull BooleanSupplier checkUntil, long ms){
+		while(!checkUntil.getAsBoolean()) sleep(ms);
+	}
+	
+	public static void sleepUntil(@NotNull BooleanSupplier checkUntil, long ms, int ns){
+		while(!checkUntil.getAsBoolean()) sleep(ms, ns);
+	}
+	
+	public static void sleepUntil(@NotNull BooleanSupplier checkUntil, long ms, float nsUnit){
+		while(!checkUntil.getAsBoolean()) sleep(ms, (int)(NS*nsUnit));
 	}
 	
 	public static void sleepWhile(@NotNull BooleanSupplier checkWhile){
@@ -595,7 +631,7 @@ public class UtilL{
 	
 	@NotNull
 	public static byte[] longToBytes(@NotNull byte[] dest, int destStart, long l){
-		for(int i=7;i >= 0;i--){
+		for(int i=7;i>=0;i--){
 			dest[destStart+i]=(byte)(l&0xFF);
 			l >>= 8;
 		}
@@ -849,5 +885,24 @@ public class UtilL{
 		return NUMERIC_PATTERN.matcher(str).matches();
 	}
 	
+	@SuppressWarnings("unchecked")
+	public static <T extends Annotation> Class<T> getAnnotationInterface(T annotation){
+		return getAnnotationInterface((Class<T>)annotation.getClass());
+	}
 	
+	@SuppressWarnings("unchecked")
+	public static <T extends Annotation> Class<T> getAnnotationInterface(Class<? extends T> proxyClass){
+		return (Class<T>)Arrays.stream(proxyClass.getInterfaces())
+		                       .filter(c->instanceOf(proxyClass, Annotation.class))
+		                       .findAny()
+		                       .orElseThrow(()->new IllegalArgumentException(proxyClass+" not an annotation"));
+	}
+	
+	public static <T> T sysPropertyByClass(Class<?> targetClass, String varName, T defaultValue, Function<String, T> map){
+		return sysPropertyByClass(targetClass, varName).map(map).orElse(defaultValue);
+	}
+	
+	public static Optional<String> sysPropertyByClass(Class<?> targetClass, String varName){
+		return Optional.ofNullable(System.getProperty(targetClass.getName()+(varName==null||varName.isEmpty()?"":"."+varName)));
+	}
 }

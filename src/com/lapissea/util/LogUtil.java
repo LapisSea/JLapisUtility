@@ -7,10 +7,6 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
@@ -23,6 +19,7 @@ import java.util.stream.IntStream;
 import static com.lapissea.util.TextUtil.*;
 import static com.lapissea.util.UtilL.*;
 
+@SuppressWarnings("rawtypes")
 public class LogUtil{
 	
 	private static final long START_TIME=System.currentTimeMillis();
@@ -137,7 +134,7 @@ public class LogUtil{
 			String companionMarker="$Companion";
 			
 			int    end=className.indexOf(companionMarker)+companionMarker.length();
-			String s  =className.length() >= end?className.substring(0, end):className;
+			String s  =className.length()>=end?className.substring(0, end):className;
 			
 			if(s.endsWith(companionMarker)){
 				try{
@@ -296,14 +293,11 @@ public class LogUtil{
 			private final OutputStream  child;
 			@NotNull
 			private final byte[]        prefix;
-			private       byte[]        data;
 			private final StringBuilder lineBuild  =new StringBuilder();
 			private       boolean       needsHeader=true;
 			
 			private final FileOutputStream                    fileCsvOut;
 			private final Function<StackTraceElement, String> header;
-			
-			private final CharsetDecoder decoder=StandardCharsets.UTF_8.newDecoder();
 			
 			public DebugHeaderStream(OutputStream child, @NotNull String prefix, @Nullable FileOutputStream fileRawOut, FileOutputStream fileCsvOut, Function<StackTraceElement, String> header){
 				this.header=header;
@@ -317,17 +311,9 @@ public class LogUtil{
 			public void flush() throws IOException{
 				header();
 				
-				byte[] data=lineBuild.toString().getBytes();
-				try{
-					for(char b : decoder.decode(ByteBuffer.wrap(data)).array()){
-						header();
-						put(b);
-					}
-				}catch(CharacterCodingException e){
-					for(byte b : data){
-						header();
-						put(b);
-					}
+				for(int i=0;i<lineBuild.length();i++){
+					char b=lineBuild.charAt(i);
+					put(b);
 				}
 				
 				lineBuild.setLength(0);
@@ -358,8 +344,11 @@ public class LogUtil{
 			}
 			
 			private void put(int b) throws IOException{
+				header();
+				
 				if(b=='\n') needsHeader=true;
 				child.write(b);
+				child.flush();
 			}
 			
 			@Override
@@ -387,7 +376,14 @@ public class LogUtil{
 				
 				if(fileCsvOut!=null) writeCvs(stack);
 				
-				child.write(header.apply(stack).getBytes());
+				boolean shouldPrint;
+				
+				shouldPrint=!stack.getClassName().equals(Throwable.class.getName()+"$WrappedPrintStream");
+				if(shouldPrint) shouldPrint=!stack.getClassName().equals(ThreadGroup.class.getName());
+				
+				if(shouldPrint){
+					child.write(header.apply(stack).getBytes());
+				}
 			}
 			
 			private StackTraceElement getCallStack(){
@@ -402,7 +398,7 @@ public class LogUtil{
 				      !(name.startsWith("java.util")&&trace[depth].getMethodName().equals("forEach"))) ;
 				depth++;
 				
-				if(depth<0||depth >= trace.length) return null;
+				if(depth<0||depth>=trace.length) return null;
 				return trace[depth];
 			}
 			
@@ -549,8 +545,8 @@ public class LogUtil{
 		StringBuilder line=new StringBuilder();
 		
 		StackTraceElement[] trace=Thread.currentThread().getStackTrace();
-		if(count >= trace.length) count=trace.length-1;
-		for(int i=count+1;i >= 2;i--){
+		if(count>=trace.length) count=trace.length-1;
+		for(int i=count+1;i>=2;i--){
 			line.append(trace[i].getMethodName()).append('(').append(trace[i].getLineNumber()).append(')');
 			if(i!=2) line.append(splitter);
 		}
@@ -683,7 +679,7 @@ public class LogUtil{
 			
 			return data;
 		}
-	                                                                                              );
+	);
 	
 	private static Map<String, String> objectToMap(Object row){
 		for(Function<Object, Map<String, String>> objectScanner : OBJECT_SCANNERS){
@@ -794,7 +790,8 @@ public class LogUtil{
 			keys.add(k=TextUtil.toString(key));
 			values.add(v=TextUtil.toString(value));
 			
-			ArrayL.max(sizes, 0, k.length(), v.length());
+			sizes[0]=Math.max(sizes[0], k.length());
+			sizes[1]=Math.max(sizes[1], v.length());
 		});
 		String k=keys.get(0);
 		if(k.length()<sizes[0]){
