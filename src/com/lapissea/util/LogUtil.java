@@ -817,7 +817,7 @@ public class LogUtil{
 		synchronized(System.out){
 			Map<String, String> rowSafe=new LinkedHashMap<>(row.size());
 			
-			Function<Object, String> toString=o->TextUtil.toString(o).replace("\n", "\\n");
+			Function<Object, String> toString=o->TextUtil.toTableString(o).replace("\n", "\\n");
 			row.forEach((k, v)->{
 				String val=toString.apply(v);
 				
@@ -869,7 +869,7 @@ public class LogUtil{
 			if(!TABLE_LAST_FLAG){//first row
 				
 				String names=TABLE_COLUMNS.stream()
-				                          .map(Object::toString)
+				                          .map(TextUtil::toTableString)
 				                          .collect(Collectors.joining("|"));
 				
 				StringBuilder lines=new StringBuilder(names.length()+3);
