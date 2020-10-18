@@ -7,7 +7,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("unchecked")
-public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashMap<K, V, SELF>> implements Map<K, V>{
+public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashMap<K, V, SELF>> extends AbstractMap<K, V>{
 	
 	public interface DeletingValueEntry<K, T>{
 		K getKey();
@@ -131,22 +131,27 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	@Override
 	public boolean containsValue(Object value){
-		processQueue();
-		return data.containsValue(value);
+		if(value==null) return false;
+		for(DeletingValueEntry<K, V> e : data.values()){
+			V v=e.get();
+			if(v==null) continue;
+			if(v.equals(value)) return true;
+		}
+		return false;
 	}
 	
 	@Override
 	public V get(Object key){
 		DeletingValueEntry<K, V> ref=data.get(key);
 		if(ref==null) return null;
-		V val=ref.get();
-		if(val==null) processQueue();
-		return val;
+		return ref.get();
 	}
+	
 	
 	@Override
 	public V put(K key, V value){
 		if(value==null) return remove(key);
+		processQueue();
 		holdTo(value);
 		DeletingValueEntry<K, V> old=data.put(key, newNode(key, value));
 		return old==null?null:old.get();
@@ -154,17 +159,14 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	@Override
 	public V remove(Object key){
+		processQueue();
 		DeletingValueEntry<K, V> old=data.remove(key);
 		return old==null?null:old.get();
 	}
 	
 	@Override
-	public void putAll(Map<? extends K, ? extends V> m){
-		m.forEach(this::put);
-	}
-	
-	@Override
 	public void clear(){
+		processQueue();
 		data.clear();
 	}
 	
@@ -190,7 +192,6 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 						if(ref==null) continue;
 						V val=ref.get();
 						if(val==null){
-							processQueue();
 							continue;
 						}
 						next=val;
@@ -234,7 +235,6 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 						Entry<K, DeletingValueEntry<K, V>> ref=iter.next();
 						if(ref==null) continue;
 						if(ref.getValue()==null){
-							processQueue();
 							continue;
 						}
 						next=ref.getKey();
@@ -337,44 +337,4 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		return entries==null?(entries=new EntrySet()):entries;
 	}
 	
-	@SuppressWarnings("ObjectInstantiationInEqualsHashCode")
-	@Override
-	public boolean equals(Object o){
-		if(o==this)
-			return true;
-		
-		if(!(o instanceof Map))
-			return false;
-		Map<?, ?> m=(Map<?, ?>)o;
-		if(m.size()!=size())
-			return false;
-		
-		try{
-			for(Entry<K, V> e : entrySet()){
-				K key  =e.getKey();
-				V value=e.getValue();
-				if(value==null){
-					if(!(m.get(key)==null&&m.containsKey(key)))
-						return false;
-				}else{
-					if(!value.equals(m.get(key)))
-						return false;
-				}
-			}
-		}catch(ClassCastException|NullPointerException unused){
-			return false;
-		}
-		
-		return true;
-	}
-	
-	@SuppressWarnings("ObjectInstantiationInEqualsHashCode")
-	@Override
-	public int hashCode(){
-		int h=0;
-		for(Entry<K, V> entry : entrySet()){
-			h+=entry.hashCode();
-		}
-		return h;
-	}
 }
