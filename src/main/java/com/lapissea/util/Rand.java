@@ -1,14 +1,17 @@
 package com.lapissea.util;
 
-import java.util.SplittableRandom;
+import java.util.Random;
 
 public class Rand{
 	
-	private static final SplittableRandom RAND=new SplittableRandom();
+	private static final ThreadLocal<Random> RAND=ThreadLocal.withInitial(Random::new);
 	
+	private static Random rand(){
+		return RAND.get();
+	}
 	
 	public static boolean b(){
-		return RAND.nextBoolean();
+		return rand().nextBoolean();
 	}
 	
 	public static boolean b(float chance){
@@ -35,7 +38,7 @@ public class Rand{
 	
 	
 	public static float f(){
-		return (RAND.nextInt()>>>8)*0x1.0p-24F;
+		return (rand().nextInt() >>> 8)*0x1.0p-24F;
 	}
 	
 	public static float f(float scale){
@@ -62,7 +65,7 @@ public class Rand{
 	
 	
 	public static double d(){
-		return RAND.nextDouble();
+		return rand().nextDouble();
 	}
 	
 	public static double d(double scale){
@@ -89,7 +92,7 @@ public class Rand{
 	
 	
 	public static int i(int max){
-		return RAND.nextInt(max);
+		return rand().nextInt(max);
 	}
 	
 	public static int i(int min, int max){

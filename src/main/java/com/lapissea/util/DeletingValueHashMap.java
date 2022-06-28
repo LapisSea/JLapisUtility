@@ -15,9 +15,20 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		T get();
 	}
 	
-	private final HashMap<K, DeletingValueEntry<K, V>> data;
+	private static class RefHolder implements Runnable{
+		@SuppressWarnings("FieldCanBeLocal")
+		private final Object reference;
+		public RefHolder(Object reference){
+			this.reference=reference;
+		}
+		@Override
+		public void run(){}
+	}
 	
-	private final     ReferenceQueue<V> gcQueue=new ReferenceQueue<>();
+	@Nullable
+	private HashMap<K, DeletingValueEntry<K, V>> data;
+	
+	private           ReferenceQueue<V> gcQueue;
 	private transient Executor          stayAlive;
 	
 	private transient Keys     keys;
@@ -26,23 +37,13 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	private transient long policy=-1;
 	
-	
-	public DeletingValueHashMap(int initialCapacity, float loadFactor){
-		data=new HashMap<>(initialCapacity, loadFactor);
-		
-	}
-	
-	public DeletingValueHashMap(int initialCapacity){
-		this(initialCapacity, 0.75F);
-	}
-	
-	public DeletingValueHashMap(){
-		this(16);
-	}
+	public DeletingValueHashMap(){}
 	
 	public DeletingValueHashMap(Map<? extends K, ? extends V> m){
-		this();
-		m.forEach((k, v)->data.put(k, newNode(k, v)));
+		if(!m.isEmpty()){
+			data=new HashMap<>(m.size());
+			m.forEach((k, v)->data.put(k, newNode(k, v)));
+		}
 	}
 	
 	public SELF defineStayAlivePolicy(long seconds){
@@ -58,7 +59,11 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		
 		boolean triggerMassHolding=stayAlive==null&&delay>0;
 		
-		ScheduledThreadPoolExecutor scheduler=new ScheduledThreadPoolExecutor(1);
+		ScheduledThreadPoolExecutor scheduler=new ScheduledThreadPoolExecutor(1, r->{
+			Thread t=new Thread(r, "value-keepalive");
+			t.setDaemon(true);
+			return t;
+		});
 		scheduler.setKeepAliveTime(10, TimeUnit.SECONDS);
 		scheduler.allowCoreThreadTimeOut(true);
 		
@@ -76,6 +81,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	}
 	
 	private DeletingValueEntry<K, V> newNode(K key, V value){
+		if(gcQueue==null) gcQueue=new ReferenceQueue<>();
 		return newNode(key, value, gcQueue);
 	}
 	
@@ -85,12 +91,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		Executor stayAlive=this.stayAlive;
 		if(stayAlive==null) return;
 		
-		stayAlive.execute(new Runnable(){
-			V reference=value;//create reference, stop gc from yeeting it
-			
-			@Override
-			public void run(){}
-		});
+		stayAlive.execute(new RefHolder(value));
 	}
 	
 	public abstract SELF copy();
@@ -103,35 +104,37 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	@Override
 	public int size(){
-		processQueue();
+		if(data==null) return 0;
 		return data.size();
 	}
 	
 	
 	@Override
 	public boolean isEmpty(){
-		processQueue();
-		return data.isEmpty();
+		return size()==0;
 	}
 	
 	@SuppressWarnings("unchecked")
 	private void processQueue(){
+		if(gcQueue==null) return;
+		
 		DeletingValueEntry<K, V> ref;
 		while((ref=(DeletingValueEntry<K, V>)gcQueue.poll())!=null){
-			remove(ref.getKey());
+			data.remove(ref.getKey());
 		}
 	}
 	
 	
 	@Override
 	public boolean containsKey(Object key){
-		processQueue();
-		return data.containsKey(key);
+		if(data==null) return false;
+		DeletingValueEntry<K, V> e=data.get((K)key);
+		return e!=null&&e.get()!=null;
 	}
 	
 	@Override
 	public boolean containsValue(Object value){
-		if(value==null) return false;
+		if(data==null||value==null) return false;
 		for(DeletingValueEntry<K, V> e : data.values()){
 			V v=e.get();
 			if(v==null) continue;
@@ -142,6 +145,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	@Override
 	public V get(Object key){
+		if(data==null) return null;
 		DeletingValueEntry<K, V> ref=data.get(key);
 		if(ref==null) return null;
 		return ref.get();
@@ -151,7 +155,8 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	@Override
 	public V put(K key, V value){
 		if(value==null) return remove(key);
-		processQueue();
+		if(data==null) data=new HashMap<>();
+		else processQueue();
 		holdTo(value);
 		DeletingValueEntry<K, V> old=data.put(key, newNode(key, value));
 		return old==null?null:old.get();
@@ -159,6 +164,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	
 	@Override
 	public V remove(Object key){
+		if(data==null) return null;
 		processQueue();
 		DeletingValueEntry<K, V> old=data.remove(key);
 		return old==null?null:old.get();
@@ -167,7 +173,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 	@Override
 	public void clear(){
 		processQueue();
-		data.clear();
+		if(data!=null) data.clear();
 	}
 	
 	private class Values extends AbstractCollection<V>{
@@ -175,6 +181,8 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		@NotNull
 		@Override
 		public Iterator<V> iterator(){
+			if(data==null) return Collections.emptyIterator();
+			
 			Iterator<DeletingValueEntry<K, V>> iter=data.values().iterator();
 			return new Iterator<V>(){
 				
@@ -202,6 +210,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 				public V next(){
 					getNext();
 					V n=next;
+					if(n==null) throw new NoSuchElementException();
 					next=null;
 					return n;
 				}
@@ -210,7 +219,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		
 		@Override
 		public int size(){
-			return data.size();
+			return DeletingValueHashMap.this.size();
 		}
 	}
 	
@@ -219,6 +228,8 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		@NotNull
 		@Override
 		public Iterator<K> iterator(){
+			if(data==null) return Collections.emptyIterator();
+			
 			Iterator<Entry<K, DeletingValueEntry<K, V>>> iter=data.entrySet().iterator();
 			return new Iterator<K>(){
 				
@@ -234,7 +245,8 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 					while(next==null&&iter.hasNext()){
 						Entry<K, DeletingValueEntry<K, V>> ref=iter.next();
 						if(ref==null) continue;
-						if(ref.getValue()==null){
+						DeletingValueEntry<K, V> entry=ref.getValue();
+						if(entry==null||entry.get()!=null){
 							continue;
 						}
 						next=ref.getKey();
@@ -245,6 +257,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 				public K next(){
 					getNext();
 					K n=next;
+					if(n==null) throw new NoSuchElementException();
 					next=null;
 					return n;
 				}
@@ -253,7 +266,7 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		
 		@Override
 		public int size(){
-			return data.size();
+			return DeletingValueHashMap.this.size();
 		}
 	}
 	
@@ -262,9 +275,11 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 		@NotNull
 		@Override
 		public Iterator<Entry<K, V>> iterator(){
+			if(data==null) return Collections.emptyIterator();
+			
 			Iterator<Entry<K, DeletingValueEntry<K, V>>> iter=data.entrySet().iterator();
 			return new Iterator<Entry<K, V>>(){
-				Entry<K, DeletingValueEntry<K, V>> next;
+				Entry<K, V> next;
 				
 				@Override
 				public boolean hasNext(){
@@ -276,45 +291,51 @@ public abstract class DeletingValueHashMap<K, V, SELF extends DeletingValueHashM
 					while(next==null&&iter.hasNext()){
 						Entry<K, DeletingValueEntry<K, V>> n  =iter.next();
 						DeletingValueEntry<K, V>           ref=n.getValue();
-						if(ref==null||ref.get()==null){
-							iter.remove();
+						
+						if(ref==null){
 							continue;
 						}
-						next=n;
+						V val=ref.get();
+						if(val==null){
+							continue;
+						}
+						
+						next=new Entry<K, V>(){
+							@Override
+							public K getKey(){
+								return n.getKey();
+							}
+							
+							@Override
+							public V getValue(){
+								return val;
+							}
+							
+							@Override
+							public V setValue(V value){
+								holdTo(value);
+								DeletingValueEntry<K, V> old=n.setValue(newNode(getKey(), value));
+								return old==null?null:old.get();
+							}
+						};
 					}
 				}
 				
 				@Override
 				public Entry<K, V> next(){
 					getNext();
-					Entry<K, DeletingValueEntry<K, V>> n=next;
+					Entry<K, V> n=next;
+					if(n==null) throw new NoSuchElementException();
 					next=null;
 					
-					return new Entry<K, V>(){
-						@Override
-						public K getKey(){
-							return n.getKey();
-						}
-						
-						@Override
-						public V getValue(){
-							return n.getValue().get();
-						}
-						
-						@Override
-						public V setValue(V value){
-							holdTo(value);
-							DeletingValueEntry<K, V> old=n.setValue(newNode(getKey(), value));
-							return old==null?null:old.get();
-						}
-					};
+					return n;
 				}
 			};
 		}
 		
 		@Override
 		public int size(){
-			return data.size();
+			return DeletingValueHashMap.this.size();
 		}
 	}
 	

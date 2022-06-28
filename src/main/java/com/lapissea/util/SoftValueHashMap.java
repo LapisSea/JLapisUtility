@@ -20,16 +20,7 @@ public class SoftValueHashMap<K, V> extends DeletingValueHashMap<K, V, SoftValue
 		}
 	}
 	
-	public SoftValueHashMap(int initialCapacity, float loadFactor){
-		super(initialCapacity, loadFactor);
-	}
-	
-	public SoftValueHashMap(int initialCapacity){
-		super(initialCapacity);
-	}
-	
-	public SoftValueHashMap(){
-	}
+	public SoftValueHashMap(){ }
 	
 	public SoftValueHashMap(Map<? extends K, ? extends V> m){
 		super(m);

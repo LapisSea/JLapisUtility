@@ -20,16 +20,7 @@ public class WeakValueHashMap<K, V> extends DeletingValueHashMap<K, V, WeakValue
 		}
 	}
 	
-	public WeakValueHashMap(int initialCapacity, float loadFactor){
-		super(initialCapacity, loadFactor);
-	}
-	
-	public WeakValueHashMap(int initialCapacity){
-		super(initialCapacity);
-	}
-	
-	public WeakValueHashMap(){
-	}
+	public WeakValueHashMap(){}
 	
 	public WeakValueHashMap(Map<? extends K, ? extends V> m){
 		super(m);
