@@ -1,18 +1,20 @@
 package com.lapissea.util;
 
 import java.util.AbstractList;
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class ArrayViewList<T> extends AbstractList<T>{
 	private T[] source;
 	
-	public static <T> PairM<Consumer<T[]>, ArrayViewList<T>> create(){
+	public static <T> Map.Entry<Consumer<T[]>, ArrayViewList<T>> create(){
 		return create((T[])null);
 	}
 	
-	public static <T> PairM<Consumer<T[]>, ArrayViewList<T>> create(T[] source){
+	public static <T> Map.Entry<Consumer<T[]>, ArrayViewList<T>> create(T[] source){
 		ArrayViewList<T> arr=new ArrayViewList<>(source);
-		return new PairM<>(arr::setSource, arr);
+		return new AbstractMap.SimpleImmutableEntry<>(arr::setSource, arr);
 	}
 	
 	@NotNull

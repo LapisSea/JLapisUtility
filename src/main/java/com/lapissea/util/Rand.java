@@ -1,13 +1,11 @@
 package com.lapissea.util;
 
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Rand{
-	
-	private static final ThreadLocal<Random> RAND=ThreadLocal.withInitial(Random::new);
-	
 	private static Random rand(){
-		return RAND.get();
+		return ThreadLocalRandom.current();
 	}
 	
 	public static boolean b(){

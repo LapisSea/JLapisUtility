@@ -157,10 +157,10 @@ public class AsynchronousBufferingInputStream extends InputStream{
 				push(bb);
 			}
 		}catch(Throwable e){
-			UtilL.closeSilenty(in);
+			UtilL.closeSilently(in);
 			reading=false;
 		}finally{
-			UtilL.closeSilenty(in);
+			UtilL.closeSilently(in);
 			reading=false;
 		}
 	}

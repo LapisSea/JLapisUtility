@@ -1,6 +1,5 @@
 package com.lapissea.util;
 
-import com.lapissea.util.function.IntIntConsumer;
 import com.lapissea.util.function.UnsafeConsumer;
 
 import java.io.*;
@@ -8,29 +7,28 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.*;
 import java.util.regex.Pattern;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import static com.lapissea.util.UtilL.OS.LINUX;
 import static com.lapissea.util.UtilL.OS.MACOS;
 import static com.lapissea.util.UtilL.OS.WINDOWS;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("unused")
 public class UtilL{
 	
 	
-	public static final double SQRT2D  =Math.sqrt(2);
-	public static final float  SQRT2F  =(float)SQRT2D;
-	public static final byte[] NO_BYTES=new byte[0];
+	public static final double SQRT2D=Math.sqrt(2);
+	public static final float  SQRT2F=(float)SQRT2D;
 	
 	public static final int MS=1_000;
 	public static final int NS=1_000_000;
@@ -38,7 +36,7 @@ public class UtilL{
 	
 	public static boolean isArray(@Nullable Object object){
 		if(object==null) return false;
-		return object instanceof Class?((Class)object).isArray():object.getClass().isArray();
+		return object instanceof Class?((Class<?>)object).isArray():object.getClass().isArray();
 	}
 	
 	public static boolean TRUE(){
@@ -71,68 +69,6 @@ public class UtilL{
 		}
 	}
 	
-	public static <T> Stream<T> stream(@NotNull Enumeration<T> e){
-		return StreamSupport.stream(
-			new Spliterators.AbstractSpliterator<T>(Long.MAX_VALUE, Spliterator.ORDERED){
-				
-				@Override
-				public boolean tryAdvance(@NotNull Consumer<? super T> action){
-					if(e.hasMoreElements()){
-						action.accept(e.nextElement());
-						return true;
-					}
-					return false;
-				}
-				
-				@Override
-				public void forEachRemaining(@NotNull Consumer<? super T> action){
-					while(e.hasMoreElements()){
-						action.accept(e.nextElement());
-					}
-				}
-			}, false);
-	}
-	
-	@Deprecated
-	@SuppressWarnings("unchecked")
-	public static <T> T[] array(@NotNull List<T> list){
-		if(list.isEmpty()) return null;
-		
-		T[] a=(T[])UtilL.array(list.get(0).getClass(), 1);
-		return list.toArray(a);
-	}
-	
-	@Deprecated
-	@SuppressWarnings("unchecked")
-	public static <T> T[] array(@NotNull List<T> list, @NotNull T[] arr){
-		if(list.isEmpty()) return null;
-		
-		T[] a;
-		if(arr.length==list.size()) a=arr;
-		else a=(T[])UtilL.array(list.get(0).getClass(), list.size());
-		return list.toArray(a);
-	}
-	
-	public static <K, V> void doAndClear(@NotNull Map<K, V> collection, @NotNull BiConsumer<K, V> toDo){
-		if(collection.isEmpty()) return;
-		collection.forEach(toDo);
-		collection.clear();
-	}
-	
-	public static <T> void doAndClear(@NotNull Collection<T> collection, @NotNull Consumer<T> toDo){
-		if(collection.isEmpty()) return;
-		for(T t : collection){
-			toDo.accept(t);
-		}
-		collection.clear();
-	}
-	
-	public static void startDaemonThread(@NotNull Runnable run, @NotNull String name){
-		Thread t=new Thread(run, name);
-		t.setDaemon(true);
-		t.start();
-	}
-	
 	@NotNull
 	@SuppressWarnings("unchecked")
 	public static <T> T[] array(Class<T> componentType, int length){
@@ -159,7 +95,10 @@ public class UtilL{
 	
 	@NotNull
 	public static <T> T deserialize(@NotNull String s){
-		byte[] data=s.getBytes(UTF_8);
+		return deserialize(s.getBytes(Charset.defaultCharset()));
+	}
+	@NotNull
+	public static <T> T deserialize(@NotNull byte[] data){
 		try(ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data))){
 			//noinspection unchecked
 			return (T)ois.readObject();
@@ -175,10 +114,10 @@ public class UtilL{
 		oos.writeObject(o);
 		oos.close();
 		//		return Base64.getEncoder().encodeToString(baos.toByteArray());
-		return new String(baos.toByteArray(), UTF_8);
+		return new String(baos.toByteArray(), Charset.defaultCharset());
 	}
 	
-	public static void closeSilenty(@NotNull Closeable closeable){
+	public static void closeSilently(@NotNull Closeable closeable){
 		try{
 			closeable.close();
 		}catch(IOException ignored){}
@@ -214,7 +153,7 @@ public class UtilL{
 	@NotNull
 	public static String compress(@NotNull String data){
 		try{
-			return new String(compress(data.getBytes(UTF_8)));
+			return new String(compress(data.getBytes(Charset.defaultCharset())));
 		}catch(Exception e){
 			throw new RuntimeException(e);
 		}
@@ -223,7 +162,7 @@ public class UtilL{
 	@NotNull
 	public static byte[] compress(@Nullable byte[] data){
 		try{
-			if(data==null||data.length==0) return NO_BYTES;
+			if(data==null||data.length==0) return ZeroArrays.ZERO_BYTE;
 			ByteArrayOutputStream obj=new ByteArrayOutputStream();
 			try(GZIPOutputStream gzip=new GZIPOutputStream(obj)){
 				gzip.write(data);
@@ -236,7 +175,7 @@ public class UtilL{
 	
 	@NotNull
 	public static String decompress(@Nullable final String compressed){
-		return new String(decompress(compressed.getBytes(UTF_8)), UTF_8);
+		return new String(decompress(compressed.getBytes(Charset.defaultCharset())), Charset.defaultCharset());
 	}
 	
 	@NotNull
@@ -331,7 +270,7 @@ public class UtilL{
 	}
 	
 	public static void fileLines(@NotNull InputStream stream, @NotNull UnsafeConsumer<String, IOException> cons) throws IOException{
-		BufferedReader b=new BufferedReader(new InputStreamReader(stream, UTF_8));
+		BufferedReader b=new BufferedReader(new InputStreamReader(stream, Charset.defaultCharset()));
 		
 		for(String line;(line=b.readLine())!=null;){
 			cons.accept(line);
@@ -405,7 +344,7 @@ public class UtilL{
 		
 		@Override
 		public void close(){
-			closeSilenty(parent);
+			closeSilently(parent);
 		}
 		
 		@Override
@@ -474,83 +413,6 @@ public class UtilL{
 	@SuppressWarnings("unchecked")
 	public static <T extends Throwable> RuntimeException uncheckedThrow(Throwable throwable) throws T{
 		throw (T)throwable;
-	}
-	
-	public static <T> Stream<T> stream(@NotNull Iterable<T> it){
-		return stream(it, false);
-	}
-	
-	public static <T> Stream<T> stream(@NotNull Iterable<T> it, boolean parallel){
-		return StreamSupport.stream(it.spliterator(), false);
-	}
-	
-	public static <T> Stream<T> stream(@NotNull Iterator<T> it){
-		return stream(it, false);
-	}
-	
-	public static <T> Stream<T> stream(@NotNull Iterator<T> it, boolean parallel){
-		return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.NONNULL), parallel);
-	}
-	
-	@NotNull
-	public static <In, Out> Out[] convert(@NotNull Collection<In> in, Class<Out> outType, @NotNull Function<In, Out> converter){
-		Out[] out=array(outType, in.size());
-		int   i  =0;
-		for(In anIn : in){
-			out[i++]=converter.apply(anIn);
-		}
-		return out;
-	}
-	
-	@NotNull
-	public static <In, Out> Out[] convert(@NotNull Collection<In> in, IntFunction<Out[]> newArray, @NotNull Function<In, Out> converter){
-		Out[] out=newArray.apply(in.size());
-		int   i  =0;
-		for(In anIn : in){
-			out[i++]=converter.apply(anIn);
-		}
-		return out;
-	}
-	
-	@NotNull
-	public static <Out> Out[] convert(@NotNull int[] in, Class<Out> outType, @NotNull IntFunction<Out> converter){
-		Out[] out=array(outType, in.length);
-		for(int i=0;i<in.length;i++){
-			out[i]=converter.apply(in[i]);
-		}
-		return out;
-	}
-	
-	@NotNull
-	public static <In, Out> Out[] convert(@NotNull In[] in, Class<Out> outType, @NotNull Function<In, Out> converter){
-		Out[] out=array(outType, in.length);
-		for(int i=0;i<in.length;i++){
-			out[i]=converter.apply(in[i]);
-		}
-		return out;
-	}
-	
-	public static <In, Out> Out[] convert(@NotNull In[] in, @NotNull IntFunction<Out[]> array, @NotNull Function<In, Out> converter){
-		Out[] out=array.apply(in.length);
-		for(int i=0;i<in.length;i++){
-			out[i]=converter.apply(in[i]);
-		}
-		return out;
-	}
-	
-	public static <In, Out> Out[] convert(@NotNull In[] in, @NotNull Out[] dest, @NotNull Function<In, Out> converter){
-		for(int i=0;i<in.length;i++){
-			dest[i]=converter.apply(in[i]);
-		}
-		return dest;
-	}
-	
-	public static <Out> Out[] convert(@NotNull int[] in, @NotNull IntFunction<Out[]> array, @NotNull IntFunction<Out> converter){
-		Out[] out=array.apply(in.length);
-		for(int i=0;i<in.length;i++){
-			out[i]=converter.apply(in[i]);
-		}
-		return out;
 	}
 	
 	public static <T> boolean contains(@NotNull T[] array, @Nullable T what){
@@ -625,8 +487,17 @@ public class UtilL{
 		return result;
 	}
 	
+	public static int bytesToInt(byte[] bytes, int offset){
+		int ret=0;
+		for(int i=0;i<4&&i+offset<bytes.length;i++){
+			ret<<=8;
+			ret|=(int)bytes[i+offset]&0xFF;
+		}
+		return ret;
+	}
+	
 	@NotNull
-	public static <In1, In2, Out> List<Out> combine(@NotNull List<In1> in1, @NotNull List<In2> in2, @NotNull BiFunction<In1, In2, Out> converter){
+	public static <In1, In2, Out> List<Out> concat(@NotNull List<In1> in1, @NotNull List<In2> in2, @NotNull BiFunction<In1, In2, Out> converter){
 		int       size=Math.min(in1.size(), in2.size());
 		List<Out> out =new ArrayList<>(size);
 		for(int i=0;i<size;i++){
@@ -636,7 +507,7 @@ public class UtilL{
 	}
 	
 	@NotNull
-	public static <In1, In2, Out> Out[] combine(@NotNull In1[] in1, @NotNull In2[] in2, @NotNull IntFunction<Out[]> array, @NotNull BiFunction<In1, In2, Out> converter){
+	public static <In1, In2, Out> Out[] concat(@NotNull In1[] in1, @NotNull In2[] in2, @NotNull IntFunction<Out[]> array, @NotNull BiFunction<In1, In2, Out> converter){
 		int   size=Math.min(in1.length, in2.length);
 		Out[] out =array.apply(size);
 		for(int i=0;i<size;i++){
@@ -647,7 +518,7 @@ public class UtilL{
 	
 	@NotNull
 	@SuppressWarnings("unchecked")
-	public static <T> T[] concatenate(@NotNull T[] a, @NotNull T[] b){
+	public static <T> T[] concat(@NotNull T[] a, @NotNull T[] b){
 		int aLen=a.length;
 		int bLen=b.length;
 		
@@ -660,23 +531,6 @@ public class UtilL{
 		System.arraycopy(b, 0, c, aLen, bLen);
 		
 		return c;
-	}
-	
-	
-	public static void parallelFor(@NotNull int[] array, int threads, @NotNull IntIntConsumer consumer){
-		if(threads<=1){
-			for(int i=0;i<array.length;i++){
-				consumer.accept(i, array[i]);
-			}
-			return;
-		}
-		int chunkSize=array.length/threads;
-		
-		IntStream.range(0, threads).parallel().forEach(chunkId->{
-			for(int i=chunkId*chunkSize, j=Math.min(i+chunkSize, array.length);i<j;i++){
-				consumer.accept(i, array[i]);
-			}
-		});
 	}
 	
 	
@@ -740,25 +594,12 @@ public class UtilL{
 		return path+"/";
 	}
 	
-	public static <T> T any(T t1, T t2){
-		return t1!=null?t1:t2;
-	}
-	
 	@NotNull
 	public static String fileExtension(@NotNull String fileName){
 		int i=fileName.lastIndexOf('.');
 		int p=Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
 		if(i>p) return fileName.substring(i+1);
 		return "";
-	}
-	
-	public static int bytesToInt(byte[] bytes, int offset){
-		int ret=0;
-		for(int i=0;i<4&&i+offset<bytes.length;i++){
-			ret<<=8;
-			ret|=(int)bytes[i+offset]&0xFF;
-		}
-		return ret;
 	}
 	
 	public enum OS{
@@ -778,18 +619,17 @@ public class UtilL{
 			if(os.contains("win")) OS=WINDOWS;
 			else if(os.contains("linux")) OS=LINUX;
 			else if(os.contains("mac")) OS=MACOS;
+			else throw new RuntimeException("Unrecognised OS");
 		}
 		return OS;
 	}
 	
 	public static boolean isInJar(Class<?> clazz){
-		return new File(clazz.getProtectionDomain()
-		                     .getCodeSource()
-		                     .getLocation()
-		                     .getPath()
-		)
-			       .getName()
-			       .endsWith(".jar");
+		String fileName=new File(clazz.getProtectionDomain()
+		                              .getCodeSource()
+		                              .getLocation()
+		                              .getPath()).getName();
+		return fileName.endsWith(".jar")||fileName.endsWith(".war");
 	}
 	
 	public static <T extends Comparable<T>> int addRemainSorted(List<T> list, T value){
@@ -882,5 +722,30 @@ public class UtilL{
 	
 	public static Optional<String> sysPropertyByClass(Class<?> targetClass, String varName){
 		return Optional.ofNullable(System.getProperty(targetClass.getName()+(varName==null||varName.isEmpty()?"":"."+varName)));
+	}
+	
+	public static Optional<String> sysProperty(String prefix, String name){
+		return sysProperty(prefix+"."+name);
+	}
+	public static Optional<String> sysProperty(String name){
+		return Optional.ofNullable(System.getProperty(name));
+	}
+	
+	
+	@NotNull
+	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier){
+		return CompletableFuture.supplyAsync(supplier);
+	}
+	
+	public static <U> CompletableFuture<U> async(@NotNull Supplier<U> supplier, Executor executor){
+		return CompletableFuture.supplyAsync(supplier, executor);
+	}
+	public static CompletableFuture<Void> async(@NotNull Runnable runnable, Executor executor){
+		return CompletableFuture.runAsync(runnable, executor);
+	}
+	
+	@NotNull
+	public static <U> CompletableFuture<Void> async(@NotNull Runnable runnable){
+		return CompletableFuture.runAsync(runnable);
 	}
 }

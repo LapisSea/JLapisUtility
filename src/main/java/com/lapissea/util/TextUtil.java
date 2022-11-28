@@ -1,15 +1,25 @@
 package com.lapissea.util;
 
+import org.atteo.evo.inflector.English;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.nio.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
 import java.util.stream.*;
 
-import static com.lapissea.util.UtilL.*;
-import static java.lang.Character.*;
-import static java.lang.reflect.Modifier.*;
+import static com.lapissea.util.UtilL.instanceOf;
+import static com.lapissea.util.UtilL.isArray;
+import static java.lang.Character.isLowerCase;
+import static java.lang.Character.isUpperCase;
+import static java.lang.Character.toLowerCase;
+import static java.lang.Character.toUpperCase;
+import static java.lang.reflect.Modifier.isPrivate;
+import static java.lang.reflect.Modifier.isProtected;
+import static java.lang.reflect.Modifier.isStatic;
+import static java.lang.reflect.Modifier.isTransient;
 
 public class TextUtil{
 	
@@ -26,11 +36,11 @@ public class TextUtil{
 				this.toString=toString;
 			}
 			
-			private String toString(T t)          { return toString.apply(t); }
+			private String toString(T t)          {return toString.apply(t);}
 			
-			private boolean checkExact(Class<?> o){ return checkExact.test(o); }
+			private boolean checkExact(Class<?> o){return checkExact.test(o);}
 			
-			private boolean check(Class<?> o)     { return check.test(o); }
+			private boolean check(Class<?> o)     {return check.test(o);}
 		}
 		
 		private final List<ToStringNode<?>>    overrides=new ArrayList<>();
@@ -99,6 +109,7 @@ public class TextUtil{
 	 * see {@link #toTable(String, Collection)}
 	 */
 	public static       boolean TABLE_BOOLEAN_TO_CHECK  =true;
+	public static       int     COLLECTION_LIMIT        =200;
 	
 	public static final CustomToString CUSTOM_TO_STRINGS  =new CustomToString(TextUtil::enhancedToString);
 	public static final CustomToString SHORT_TO_STRINGS   =new CustomToString(CUSTOM_TO_STRINGS::toString);
@@ -131,6 +142,10 @@ public class TextUtil{
 		CUSTOM_TO_STRINGS.register(FloatBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("FloatBuffer[");
 			for(int i=0;i<buffer.limit();){
+				if(print.length()>COLLECTION_LIMIT){
+					print.append("... ").append(buffer.limit()-i).append(" more");
+					break;
+				}
 				print.append(buffer.get(i));
 				if(++i<buffer.limit()) print.append(", ");
 			}
@@ -140,6 +155,10 @@ public class TextUtil{
 		CUSTOM_TO_STRINGS.register(IntBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("IntBuffer[");
 			for(int i=0;i<buffer.limit();){
+				if(print.length()>COLLECTION_LIMIT){
+					print.append("... ").append(buffer.limit()-i).append(" more");
+					break;
+				}
 				print.append(buffer.get(i));
 				if(++i<buffer.limit()) print.append(", ");
 			}
@@ -149,6 +168,10 @@ public class TextUtil{
 		CUSTOM_TO_STRINGS.register(ByteBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ByteBuffer[");
 			for(int i=0;i<buffer.limit();){
+				if(print.length()>COLLECTION_LIMIT){
+					print.append("... ").append(buffer.limit()-i).append(" more");
+					break;
+				}
 				print.append(buffer.get(i)&0xFF);
 				
 				if(++i<buffer.limit()) print.append(", ");
@@ -159,6 +182,10 @@ public class TextUtil{
 		CUSTOM_TO_STRINGS.register(LongBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("LongBuffer[");
 			for(int i=0;i<buffer.limit();){
+				if(print.length()>COLLECTION_LIMIT){
+					print.append("... ").append(buffer.limit()-i).append(" more");
+					break;
+				}
 				print.append(buffer.get(i));
 				if(++i<buffer.limit()) print.append(", ");
 			}
@@ -168,6 +195,10 @@ public class TextUtil{
 		CUSTOM_TO_STRINGS.register(ShortBuffer.class, buffer->{
 			StringBuilder print=new StringBuilder("ShortBuffer[");
 			for(int i=0;i<buffer.limit();){
+				if(print.length()>COLLECTION_LIMIT){
+					print.append("... ").append(buffer.limit()-i).append(" more");
+					break;
+				}
 				print.append(buffer.get(i));
 				if(++i<buffer.limit()) print.append(", ");
 			}
@@ -213,12 +244,19 @@ public class TextUtil{
 			
 			StringBuilder sb=new StringBuilder();
 			sb.append('[');
+			int count=0;
 			for(;;){
+				if(sb.length()>COLLECTION_LIMIT){
+					sb.append("... ").append(col.size()-count).append(" more");
+					break;
+				}
+				count++;
 				Object e=it.next();
 				sb.append(e==col?"(this Collection)":collectionTS.get().toString(e));
-				if(!it.hasNext()) return sb.append(']').toString();
+				if(!it.hasNext()) break;
 				sb.append(',').append(' ');
 			}
+			return sb.append(']').toString();
 		});
 		
 		CUSTOM_TO_STRINGS.register(Map.class, (Map<?, ?> map)->{
@@ -336,7 +374,7 @@ public class TextUtil{
 					return false;
 				}
 			};
-		}catch(ReflectiveOperationException ignored){ }
+		}catch(ReflectiveOperationException ignored){}
 		
 		IS_RECORD=isRecordTmp;
 	}
@@ -479,11 +517,11 @@ public class TextUtil{
 	}
 	
 	@NotNull
-	public static String toString(@Nullable Object obj){ return CUSTOM_TO_STRINGS.toString(obj); }
+	public static String toString(@Nullable Object obj){return CUSTOM_TO_STRINGS.toString(obj);}
 	@NotNull
-	public static String toShortString(@Nullable Object obj){ return SHORT_TO_STRINGS.toString(obj); }
+	public static String toShortString(@Nullable Object obj){return SHORT_TO_STRINGS.toString(obj);}
 	@NotNull
-	public static String toTableString(@Nullable Object obj){ return IN_TABLE_TO_STRINGS.toString(obj); }
+	public static String toTableString(@Nullable Object obj){return IN_TABLE_TO_STRINGS.toString(obj);}
 	
 	
 	private static final ThreadLocal<Deque<Object>> JSON_CALL_STACK=ThreadLocal.withInitial(LinkedList::new);
@@ -681,18 +719,18 @@ public class TextUtil{
 			for(int i=0;i<nonTabbed.length();i++){
 				char c=nonTabbed.charAt(i);
 				switch(c){
-				case '\n':
-					tabbed.append("\\n");
-					break;
-				case '\r':
-					tabbed.append("\\r");
-					break;
-				case '\t':
-					tabbed.append(stringFill((tabbed.length()+1)%4, ' '));
-					break;
-				default:
-					tabbed.append(c);
-					break;
+					case '\n':
+						tabbed.append("\\n");
+						break;
+					case '\r':
+						tabbed.append("\\r");
+						break;
+					case '\t':
+						tabbed.append(stringFill((tabbed.length()+1)%4, ' '));
+						break;
+					default:
+						tabbed.append(c);
+						break;
 				}
 			}
 			
@@ -729,12 +767,12 @@ public class TextUtil{
 				row.entrySet().forEach(e->{
 					if(booleanColumns.get(e.getKey())){
 						switch(e.getValue()){
-						case "true":
-							e.setValue("√");
-							break;
-						case "false":
-							e.setValue("x");
-							break;
+							case "true":
+								e.setValue("√");
+								break;
+							case "false":
+								e.setValue("x");
+								break;
 						}
 					}
 				});
@@ -845,7 +883,7 @@ public class TextUtil{
 						result.add(name);
 					}
 					
-				}catch(NoSuchMethodException ignored){ }
+				}catch(NoSuchMethodException ignored){}
 			};
 			
 			BiConsumer<String, Class<?>> addOverriding=(name, base)->{
@@ -880,20 +918,7 @@ public class TextUtil{
 	}
 	
 	public static String plural(@NotNull String word){
-		switch(word.charAt(word.length()-1)){
-		case 's':
-		case 'x':
-			return word+"es";
-		case 'h':{
-			switch(word.charAt(word.length()-2)){
-			case 's':
-			case 'c':
-				return word+"es";
-			}
-		}
-		default:
-			return word+"s";
-		}
+		return English.plural(word);
 	}
 	
 	@NotNull

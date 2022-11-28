@@ -1,4 +1,4 @@
-package com.lapissea.util;
+package com.lapissea.util.function;
 
 @FunctionalInterface
 public interface UnsafeLongSupplier<E extends Throwable>{
