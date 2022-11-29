@@ -1,68 +1,88 @@
 package com.lapissea.util;
 
+import com.lapissea.util.function.UnsafeSupplier;
+
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class LateInit<T>{
+public class LateInit<T, E extends Throwable>{
 	
-	private T       value;
-	private boolean inited;
+	public static class Safe<T> extends LateInit<T, RuntimeException>{
+		public Safe(Supplier<T> initializer){
+			super(initializer::get);
+		}
+		public Safe(Supplier<T> initializer, Executor executor){
+			super(initializer::get, executor);
+		}
+	}
 	
-	public LateInit(Supplier<T> initializer){
+	private T result;
+	private E err;
+	
+	public LateInit(UnsafeSupplier<T, E> initializer){
 		this(initializer, ForkJoinPool.commonPool());
 	}
 	
-	public LateInit(Supplier<T> initializer, Executor executor){
+	public LateInit(UnsafeSupplier<T, E> initializer, Executor executor){
 		executor.execute(()->{
 			try{
-				value=initializer.get();
-				inited=true;
+				result=Objects.requireNonNull(initializer.get());
 			}catch(Throwable e){
-				throw UtilL.uncheckedThrow(e);
+				err=(E)e;
+			}finally{
+				synchronized(LateInit.this){
+					LateInit.this.notifyAll();
+				}
 			}
 		});
 	}
 	
-	public boolean isInited(){
-		return inited;
+	public boolean isInitialized(){
+		return result!=null||err!=null;
 	}
 	
 	public void block(){
-		if(isInited()) return;
-		UtilL.sleepUntil(this::isInited);
+		while(!isInitialized()){
+			synchronized(LateInit.this){
+				try{
+					LateInit.this.wait(1000);
+				}catch(InterruptedException e){
+					throw new RuntimeException(e);
+				}
+			}
+		}
 	}
 	
-	public T get(){
-		block();
-		return value;
+	public T get() throws E{
+		if(!isInitialized()) block();
+		if(err!=null) throw err;
+		return result;
 	}
 	
-	public void ifInited(Consumer<T> action){
-		if(isInited()) action.accept(value);
+	public void ifInited(Consumer<T> action) throws E{
+		if(isInitialized()){
+			if(err!=null) throw err;
+			action.accept(result);
+		}
 	}
 	
 	@Override
 	public boolean equals(Object o){
 		if(this==o) return true;
 		if(!(o instanceof LateInit)) return false;
-		LateInit<?> lateInit=(LateInit<?>)o;
-		return isInited()==lateInit.isInited()&&
-		       Objects.equals(value, lateInit.value);
+		LateInit<?, ?> lateInit=(LateInit<?, ?>)o;
+		return isInitialized()==lateInit.isInitialized()&&
+		       Objects.equals(result, lateInit.result)&&
+		       Objects.equals(err, lateInit.err);
 	}
-	@Override
-	public int hashCode(){
-		int result=1;
-		
-		result=31*result+(value==null?0:value.hashCode());
-		result=31*result+Boolean.hashCode(inited);
-		
-		return result;
-	}
+	
 	@Override
 	public String toString(){
-		return isInited()?"LateInit("+TextUtil.toString(value)+")":"LateInit<...>";
+		if(!isInitialized()) return "LateInit<...>";
+		if(err!=null) return "LateInit<failed: "+err+">";
+		return "LateInit("+TextUtil.toString(result)+")";
 	}
 }
