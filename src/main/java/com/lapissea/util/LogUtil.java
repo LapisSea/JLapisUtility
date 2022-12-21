@@ -6,11 +6,10 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -280,9 +279,15 @@ public class LogUtil{
 		
 		private static final class DebugHeaderStream extends OutputStream{
 			
-			private final OutputStream  child;
-			private final StringBuilder lineBuild   = new StringBuilder();
-			private       boolean       needsHeader = true;
+			private static final class LineBuild extends ByteArrayOutputStream{
+				private byte[] buf(){
+					return buf;
+				}
+			}
+			
+			private final OutputStream child;
+			private       LineBuild    lineBuild   = new LineBuild();
+			private       boolean      needsHeader = true;
 			
 			private final Function<StackTraceElement, String> header;
 			
@@ -298,8 +303,12 @@ public class LogUtil{
 				sb.setLength(0);
 				sb.append(header());
 				
-				for(int i = 0; i<lineBuild.length(); i++){
-					char b = lineBuild.charAt(i);
+				Reader reader = new InputStreamReader(new ByteBufferBackedInputStream(ByteBuffer.wrap(lineBuild.buf(), 0, lineBuild.size())));
+				
+				while(true){
+					int bi = reader.read();
+					if(bi == -1) break;
+					char b = (char)bi;
 					
 					sb.append(header());
 					
@@ -307,8 +316,8 @@ public class LogUtil{
 					sb.append(b);
 				}
 				
-				if(lineBuild.capacity()>lineBuild.length()*2) sb.trimToSize();
-				lineBuild.setLength(0);
+				if(lineBuild.buf().length>lineBuild.size()*2) lineBuild = new LineBuild();
+				lineBuild.reset();
 				child.write(sb.toString().getBytes());
 				child.flush();
 				if(sb.capacity()>sb.length()*2) sb.trimToSize();
@@ -319,7 +328,6 @@ public class LogUtil{
 				}else{
 					TABLE_COLUMNS.clear();
 				}
-				
 			}
 			
 			private String header(){
@@ -340,14 +348,15 @@ public class LogUtil{
 				if(b == '\r') return;
 				
 				if(b == '\n'){
-					lineBuild.append(TextUtil.NEW_LINE);
+					for(int i = 0; i<TextUtil.NEW_LINE.length(); i++){
+						lineBuild.write(TextUtil.NEW_LINE.charAt(i));
+					}
 				}else{
-					
-					lineBuild.append((char)b);
+					lineBuild.write(b);
 				}
 			}
 			
-			private String debugHeader() throws IOException{
+			private String debugHeader(){
 				StackTraceElement stack = getCallStack();
 				boolean           shouldPrint;
 				shouldPrint = !stack.getClassName().equals(Throwable.class.getName() + "$WrappedPrintStream");
