@@ -13,7 +13,7 @@ public interface BiConsumerOL<T>{
 	default BiConsumerOL<T> andThen(@NotNull BiConsumerOL<? super T> after){
 		Objects.requireNonNull(after);
 		
-		return (l, r)->{
+		return (l, r) -> {
 			accept(l, r);
 			after.accept(l, r);
 		};

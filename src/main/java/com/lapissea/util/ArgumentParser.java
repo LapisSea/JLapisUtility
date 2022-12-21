@@ -6,18 +6,18 @@ import java.util.stream.Collectors;
 
 public class ArgumentParser{
 	
-	private static final Object NULL=new Object();
+	private static final Object NULL = new Object();
 	
-	private final Map<String, Object> data=new HashMap<>();
+	private final Map<String, Object> data = new HashMap<>();
 	
 	public ArgumentParser(@NotNull String[] args){
 		for(String arg : args){
 			if(arg.startsWith("--")){
-				int pos=arg.indexOf("=");
-				if(pos==-1) data.put(arg.substring(2), NULL);
+				int pos = arg.indexOf("=");
+				if(pos == -1) data.put(arg.substring(2), NULL);
 				else{
-					String val=arg.substring(pos+1);
-					data.put(arg.substring(2, pos), "null".equals(val)?NULL:val);
+					String val = arg.substring(pos + 1);
+					data.put(arg.substring(2, pos), "null".equals(val)? NULL : val);
 				}
 			}
 		}
@@ -35,8 +35,8 @@ public class ArgumentParser{
 	
 	@Nullable
 	public String getString(@NotNull String key, @Nullable String def){
-		Object o=get(key);
-		if(o==null) return def;
+		Object o = get(key);
+		if(o == null) return def;
 		return o.toString();
 	}
 	
@@ -50,10 +50,10 @@ public class ArgumentParser{
 	}
 	
 	public int getInt(@NotNull String key, int def){
-		Object o=get(key);
-		if(o==null) return def;
+		Object o = get(key);
+		if(o == null) return def;
 		if(o instanceof Integer) return (int)o;
-		data.put(key, o=Integer.parseInt((String)o));
+		data.put(key, o = Integer.parseInt((String)o));
 		return (int)o;
 	}
 	
@@ -67,10 +67,10 @@ public class ArgumentParser{
 	}
 	
 	public boolean getBoolean(@NotNull String key, boolean def){
-		Object o=get(key);
-		if(o==null) return def;
+		Object o = get(key);
+		if(o == null) return def;
 		if(o instanceof Boolean) return (boolean)o;
-		data.put(key, o=Boolean.parseBoolean((String)o));
+		data.put(key, o = Boolean.parseBoolean((String)o));
 		return (boolean)o;
 	}
 	
@@ -79,32 +79,32 @@ public class ArgumentParser{
 	}
 	
 	
-	public <T>T get(@NotNull String key){
+	public <T> T get(@NotNull String key){
 		return get(key, null);
 	}
 	
-	public <T>T get(@NotNull String key, T def){
-		Object o=data.get(key);
-		return o==null||o==NULL?def:(T)o;
+	public <T> T get(@NotNull String key, T def){
+		Object o = data.get(key);
+		return o == null || o == NULL? def : (T)o;
 	}
 	
 	@Override
 	public String toString(){
-		return data.entrySet().stream().map(e->{
+		return data.entrySet().stream().map(e -> {
 			
-			Object v=e.getValue();
-			String s=v==null||v==NULL?"":escape(TextUtil.toString(v));
+			Object v = e.getValue();
+			String s = v == null || v == NULL? "" : escape(TextUtil.toString(v));
 			
-			return "--"+escape(e.getKey())+(s.isEmpty()?"":"="+s);
+			return "--" + escape(e.getKey()) + (s.isEmpty()? "" : "=" + s);
 			
 		}).collect(Collectors.joining(" "));
 	}
 	
 	private String escape(String in){
-		in=in.replaceAll("\"", "\\\"");
+		in = in.replaceAll("\"", "\\\"");
 		
 		if(in.chars().anyMatch(Character::isWhitespace)){
-			in='"'+in+'"';
+			in = '"' + in + '"';
 		}
 		return in;
 	}

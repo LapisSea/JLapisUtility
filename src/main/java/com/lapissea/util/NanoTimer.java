@@ -7,17 +7,17 @@ public interface NanoTimer{
 	
 	class Staged implements NanoTimer{
 		
-		private final List<Stage> stages =new ArrayList<>();
+		private final List<Stage> stages  = new ArrayList<>();
 		private       long        start;
 		private       long        total;
-		private       boolean     started=false;
+		private       boolean     started = false;
 		
 		private static class Stage{
 			private final String name;
 			private final long   time;
 			private Stage(String name, long time){
-				this.name=name;
-				this.time=time;
+				this.name = name;
+				this.time = time;
 			}
 		}
 		
@@ -28,27 +28,27 @@ public interface NanoTimer{
 			this("<Start>");
 		}
 		public Staged(String firstStageName){
-			lastStage=firstStageName;
+			lastStage = firstStageName;
 		}
 		
 		public void stage(String nextStageName){
-			long t=now();
+			long t = now();
 			stages.add(new Stage(nextStageName, t));
-			lastStage=nextStageName;
+			lastStage = nextStageName;
 		}
 		
 		@Override
 		public void start(){
-			started=true;
-			lastStageTime=start=now();
+			started = true;
+			lastStageTime = start = now();
 			stages.add(new Stage(lastStage, start));
 		}
 		
 		@Override
 		public void end(){
-			long t=now();
+			long t = now();
 			if(!started) throw new IllegalStateException("Not started");
-			total=t-start;
+			total = t - start;
 			stages.add(new Stage("<End>", t));
 		}
 		
@@ -83,16 +83,16 @@ public interface NanoTimer{
 		
 		@Override
 		public String toString(){
-			StringBuilder sb=new StringBuilder();
+			StringBuilder sb = new StringBuilder();
 			sb.append("Total: ").append(toMs(total)).append(", ");
-			long lastT=0;
+			long lastT = 0;
 			for(Stage stage : stages){
-				if(sb.length()==0){
+				if(sb.length() == 0){
 					sb.append(stage.name);
 				}else{
-					sb.append(" > ").append(toMs(stage.time-lastT)).append(" > ");
+					sb.append(" > ").append(toMs(stage.time - lastT)).append(" > ");
 				}
-				lastT=stage.time;
+				lastT = stage.time;
 			}
 			
 			return sb.toString();
@@ -104,48 +104,48 @@ public interface NanoTimer{
 		@NotNull
 		private final long[] data;
 		private       long   start;
-		private       int    pos=99, count;
-		private boolean started=false;
+		private       int    pos = 99, count;
+		private boolean started = false;
 		
 		public Avg(){
 			this(100);
 		}
 		public Avg(int buffSize){
-			data=new long[buffSize];
+			data = new long[buffSize];
 		}
 		
 		@Override
 		public void start(){
-			started=true;
-			start=now();
+			started = true;
+			start = now();
 		}
 		
 		@Override
 		public void end(){
-			long t=now();
+			long t = now();
 			if(!started) throw new IllegalStateException("Not started");
-			pos=(pos+1)%data.length;
-			data[pos]=t-start;
+			pos = (pos + 1)%data.length;
+			data[pos] = t - start;
 			if(count<data.length) count++;
 			
 		}
 		
 		public long nsAvrg100(){
-			if(count==0) return -1;
-			long sum=0;
-			for(int i=0;i<count;i++){
-				sum+=data[i];
+			if(count == 0) return -1;
+			long sum = 0;
+			for(int i = 0; i<count; i++){
+				sum += data[i];
 			}
 			return sum/count;
 		}
 		
 		public double msAvrg100(){
-			if(count==0) return -1;
+			if(count == 0) return -1;
 			return toMs(nsAvrg100());
 		}
 		
 		public double sAvrg100(){
-			if(count==0) return -1;
+			if(count == 0) return -1;
 			return toS(nsAvrg100());
 		}
 		
@@ -182,22 +182,22 @@ public interface NanoTimer{
 		
 		private long    last;
 		private long    start;
-		private boolean started=false;
+		private boolean started = false;
 		
 		public Simple(){
 		}
 		
 		@Override
 		public void start(){
-			started=true;
-			start=now();
+			started = true;
+			start = now();
 		}
 		
 		@Override
 		public void end(){
-			long t=now();
+			long t = now();
 			if(!started) throw new IllegalStateException("Not started");
-			last=t-start;
+			last = t - start;
 			
 		}
 		
@@ -230,7 +230,7 @@ public interface NanoTimer{
 		
 		@Override
 		public String toString(){
-			return "{"+ms()+"}";
+			return "{" + ms() + "}";
 		}
 	}
 	

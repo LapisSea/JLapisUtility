@@ -8,6 +8,6 @@ public interface TriFunction<A, B, C, R>{
 	R apply(A a, B b, C c);
 	
 	static <T> Function<T, T> identity(){
-		return t->t;
+		return t -> t;
 	}
 }

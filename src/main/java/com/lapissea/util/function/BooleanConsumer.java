@@ -11,6 +11,9 @@ public interface BooleanConsumer{
 	@NotNull
 	default BooleanConsumer andThen(@NotNull BooleanConsumer after){
 		Objects.requireNonNull(after);
-		return b->{ accept(b); after.accept(b); };
+		return b -> {
+			accept(b);
+			after.accept(b);
+		};
 	}
 }

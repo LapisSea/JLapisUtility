@@ -10,18 +10,18 @@ public class BoolEventRegistry{
 	private List<BooleanConsumer> listeners;
 	
 	public boolean register(BooleanConsumer listener){
-		if(listeners==null) listeners=new ArrayList<>(2);
+		if(listeners == null) listeners = new ArrayList<>(2);
 		else if(listeners.contains(listener)) return false;
 		listeners.add(listener);
 		return true;
 	}
 	
 	public boolean unregister(BooleanConsumer listener){
-		return listeners!=null&&listeners.remove(listener);
+		return listeners != null && listeners.remove(listener);
 	}
 	
 	public void dispatch(boolean obj){
-		if(listeners==null) return;
+		if(listeners == null) return;
 		for(BooleanConsumer listener : listeners){
 			listener.accept(obj);
 		}

@@ -22,7 +22,7 @@ public interface UnsafeBiConsumer<T, U, E extends Throwable>{
 	default UnsafeBiConsumer<T, U, E> andThen(UnsafeBiConsumer<? super T, ? super U, ? extends E> after){
 		Objects.requireNonNull(after);
 		
-		return (l, r)->{
+		return (l, r) -> {
 			accept(l, r);
 			after.accept(l, r);
 		};

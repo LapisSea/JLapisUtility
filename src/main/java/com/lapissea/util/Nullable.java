@@ -1,3 +1,3 @@
 package com.lapissea.util;
 
-public @interface Nullable{}
+public @interface Nullable{ }

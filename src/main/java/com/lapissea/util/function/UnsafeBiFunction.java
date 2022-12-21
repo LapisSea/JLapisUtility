@@ -29,6 +29,6 @@ public interface UnsafeBiFunction<T, U, R, E extends Throwable>{
 	 */
 	default <V> UnsafeBiFunction<T, U, V, E> andThen(Function<? super R, ? extends V> after){
 		Objects.requireNonNull(after);
-		return (T t, U u)->after.apply(apply(t, u));
+		return (T t, U u) -> after.apply(apply(t, u));
 	}
 }

@@ -23,6 +23,9 @@ public interface FloatConsumer{
 	@NotNull
 	default FloatConsumer andThen(@NotNull FloatConsumer after){
 		Objects.requireNonNull(after);
-		return (t)->{ accept(t); after.accept(t); };
+		return (t) -> {
+			accept(t);
+			after.accept(t);
+		};
 	}
 }

@@ -11,7 +11,7 @@ public interface UnsafeLongConsumer<E extends Throwable>{
 	@NotNull
 	default <Ex extends E> UnsafeLongConsumer<E> andThen(@NotNull UnsafeLongConsumer<Ex> after){
 		Objects.requireNonNull(after);
-		return (t)->{
+		return (t) -> {
 			accept(t);
 			after.accept(t);
 		};

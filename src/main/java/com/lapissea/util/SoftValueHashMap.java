@@ -11,7 +11,7 @@ public class SoftValueHashMap<K, V> extends DeletingValueHashMap<K, V, SoftValue
 		
 		private SoftEntry(K key, T value, ReferenceQueue<T> queue){
 			super(value, queue);
-			this.key=key;
+			this.key = key;
 		}
 		
 		@Override

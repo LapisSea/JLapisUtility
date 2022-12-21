@@ -13,7 +13,7 @@ public class ChangeRegistry<ObjectType> extends EventRegistry<ObjectType>{
 	@SafeVarargs
 	public ChangeRegistry(ObjectType object, Consumer<ObjectType>... listener){
 		this(listener);
-		this.object=object;
+		this.object = object;
 	}
 	
 	@SafeVarargs
@@ -26,12 +26,12 @@ public class ChangeRegistry<ObjectType> extends EventRegistry<ObjectType>{
 	public ChangeRegistry(){ }
 	
 	public ChangeRegistry(ObjectType object){
-		this.object=object;
+		this.object = object;
 	}
 	
 	public void set(ObjectType object){
 		if(Objects.equals(this.object, object)) return;
-		this.object=object;
+		this.object = object;
 		dispatch(object);
 	}
 	
@@ -42,6 +42,6 @@ public class ChangeRegistry<ObjectType> extends EventRegistry<ObjectType>{
 	@NotNull
 	@Override
 	public String toString(){
-		return getClass().getSimpleName()+"{val="+object+"}";
+		return getClass().getSimpleName() + "{val=" + object + "}";
 	}
 }

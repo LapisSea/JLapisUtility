@@ -10,7 +10,7 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 	
 	public ChangeRegistryBool(boolean object, BooleanConsumer... listener){
 		this(listener);
-		this.object=object;
+		this.object = object;
 	}
 	
 	public ChangeRegistryBool(@NotNull BooleanConsumer... listener){
@@ -19,15 +19,15 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 		}
 	}
 	
-	public ChangeRegistryBool(){}
+	public ChangeRegistryBool(){ }
 	
 	public ChangeRegistryBool(boolean object){
-		this.object=object;
+		this.object = object;
 	}
 	
 	public void set(boolean object){
-		if(this.object==object) return;
-		this.object=object;
+		if(this.object == object) return;
+		this.object = object;
 		dispatch(object);
 	}
 	
@@ -38,6 +38,6 @@ public class ChangeRegistryBool extends BoolEventRegistry{
 	@NotNull
 	@Override
 	public String toString(){
-		return getClass().getSimpleName()+"{val="+object+"}";
+		return getClass().getSimpleName() + "{val=" + object + "}";
 	}
 }

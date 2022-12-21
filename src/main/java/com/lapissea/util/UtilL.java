@@ -27,16 +27,16 @@ import static com.lapissea.util.UtilL.OS.WINDOWS;
 public class UtilL{
 	
 	
-	public static final double SQRT2D=Math.sqrt(2);
-	public static final float  SQRT2F=(float)SQRT2D;
+	public static final double SQRT2D = Math.sqrt(2);
+	public static final float  SQRT2F = (float)SQRT2D;
 	
-	public static final int MS=1_000;
-	public static final int NS=1_000_000;
+	public static final int MS = 1_000;
+	public static final int NS = 1_000_000;
 	
 	
 	public static boolean isArray(@Nullable Object object){
-		if(object==null) return false;
-		return object instanceof Class?((Class<?>)object).isArray():object.getClass().isArray();
+		if(object == null) return false;
+		return object instanceof Class? ((Class<?>)object).isArray() : object.getClass().isArray();
 	}
 	
 	public static boolean TRUE(){
@@ -46,7 +46,7 @@ public class UtilL{
 	public static void sleep(long millis){
 		try{
 			Thread.sleep(millis);
-		}catch(InterruptedException ignored){}
+		}catch(InterruptedException ignored){ }
 	}
 	
 	public static void sleep(long millis, float nanoUnit){
@@ -85,12 +85,12 @@ public class UtilL{
 	 * left instanceof right
 	 */
 	public static boolean instanceOf(@NotNull Class<?> left, @NotNull Class<?> right){
-		if(left==right) return true;
+		if(left == right) return true;
 		return right.isAssignableFrom(left);
 	}
 	
 	public static boolean instanceOfObj(@Nullable Object left, @NotNull Class<?> right){
-		return left!=null&&instanceOf(left.getClass(), right);
+		return left != null && instanceOf(left.getClass(), right);
 	}
 	
 	@NotNull
@@ -99,7 +99,7 @@ public class UtilL{
 	}
 	@NotNull
 	public static <T> T deserialize(@NotNull byte[] data){
-		try(ObjectInputStream ois=new ObjectInputStream(new ByteArrayInputStream(data))){
+		try(ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))){
 			//noinspection unchecked
 			return (T)ois.readObject();
 		}catch(Exception e){
@@ -109,8 +109,8 @@ public class UtilL{
 	
 	@NotNull
 	public static String serialize(@NotNull Serializable o) throws IOException{
-		ByteArrayOutputStream baos=new ByteArrayOutputStream();
-		ObjectOutputStream    oos =new ObjectOutputStream(baos);
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		ObjectOutputStream    oos  = new ObjectOutputStream(baos);
 		oos.writeObject(o);
 		oos.close();
 		//		return Base64.getEncoder().encodeToString(baos.toByteArray());
@@ -120,7 +120,7 @@ public class UtilL{
 	public static void closeSilently(@NotNull Closeable closeable){
 		try{
 			closeable.close();
-		}catch(IOException ignored){}
+		}catch(IOException ignored){ }
 	}
 	
 	@NotNull
@@ -132,7 +132,7 @@ public class UtilL{
 	public static List<Field> getAllFields(@NotNull List<Field> fields, @NotNull Class<?> type){
 		fields.addAll(Arrays.asList(type.getDeclaredFields()));
 		
-		if(type.getSuperclass()!=null){
+		if(type.getSuperclass() != null){
 			getAllFields(fields, type.getSuperclass());
 		}
 		
@@ -145,7 +145,7 @@ public class UtilL{
 		try{
 			return type.getDeclaredField(name);
 		}catch(NoSuchFieldException e){
-			if(type==Object.class) throw e;
+			if(type == Object.class) throw e;
 			return getDeepDeclaredField(type.getSuperclass(), name);
 		}
 	}
@@ -162,9 +162,9 @@ public class UtilL{
 	@NotNull
 	public static byte[] compress(@Nullable byte[] data){
 		try{
-			if(data==null||data.length==0) return ZeroArrays.ZERO_BYTE;
-			ByteArrayOutputStream obj=new ByteArrayOutputStream();
-			try(GZIPOutputStream gzip=new GZIPOutputStream(obj)){
+			if(data == null || data.length == 0) return ZeroArrays.ZERO_BYTE;
+			ByteArrayOutputStream obj = new ByteArrayOutputStream();
+			try(GZIPOutputStream gzip = new GZIPOutputStream(obj)){
 				gzip.write(data);
 			}
 			return obj.toByteArray();
@@ -181,15 +181,15 @@ public class UtilL{
 	@NotNull
 	public static byte[] decompress(@Nullable final byte[] compressed){
 		try{
-			if(compressed==null||compressed.length==0) return ZeroArrays.ZERO_BYTE;
+			if(compressed == null || compressed.length == 0) return ZeroArrays.ZERO_BYTE;
 			
 			if(isCompressed(compressed)){
-				try(GZIPInputStream gis=new GZIPInputStream(new ByteArrayInputStream(compressed))){
-					ByteArrayOutputStream builder=new ByteArrayOutputStream();
-					byte[]                buff   =new byte[Math.min(2048, compressed.length)];
+				try(GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(compressed))){
+					ByteArrayOutputStream builder = new ByteArrayOutputStream();
+					byte[]                buff    = new byte[Math.min(2048, compressed.length)];
 					
 					int read;
-					while((read=gis.read(buff, 0, buff.length))>=0){
+					while((read = gis.read(buff, 0, buff.length))>=0){
 						builder.write(buff, 0, read);
 					}
 					
@@ -205,7 +205,7 @@ public class UtilL{
 	}
 	
 	public static boolean isCompressed(byte[] compressed){
-		return compressed.length>1&&compressed[0]==(byte)GZIPInputStream.GZIP_MAGIC&&compressed[1]==(byte)(GZIPInputStream.GZIP_MAGIC>>8);
+		return compressed.length>1 && compressed[0] == (byte)GZIPInputStream.GZIP_MAGIC && compressed[1] == (byte)(GZIPInputStream.GZIP_MAGIC>>8);
 	}
 	
 	
@@ -229,11 +229,11 @@ public class UtilL{
 	
 	@NotNull
 	public static Class<?> findClosestCommonSuper(@NotNull Class<?> a, @NotNull Class<?> b){
-		if(a==b) return a;
-		if(a==Object.class||b==Object.class) return Object.class;
-		Class<?> s=a;
+		if(a == b) return a;
+		if(a == Object.class || b == Object.class) return Object.class;
+		Class<?> s = a;
 		while(!s.isAssignableFrom(b)){
-			s=s.getSuperclass();
+			s = s.getSuperclass();
 		}
 		return s;
 	}
@@ -242,12 +242,12 @@ public class UtilL{
 	public static byte[] readAll(@NotNull InputStream is){
 		ByteArrayOutputStream buffer;
 		try{
-			buffer=new ByteArrayOutputStream();
+			buffer = new ByteArrayOutputStream();
 			
 			int    nRead;
-			byte[] data=new byte[1024];
+			byte[] data = new byte[1024];
 			
-			while((nRead=is.read(data, 0, data.length))!=-1){
+			while((nRead = is.read(data, 0, data.length)) != -1){
 				buffer.write(data, 0, nRead);
 			}
 		}catch(Exception e){
@@ -257,7 +257,7 @@ public class UtilL{
 	}
 	
 	public static boolean emptyOrNull(@Nullable String string){
-		return string==null||string.isEmpty();
+		return string == null || string.isEmpty();
 	}
 	
 	public static void runWhile(@NotNull BooleanSupplier when, @NotNull Runnable what){
@@ -266,13 +266,13 @@ public class UtilL{
 	}
 	
 	public static void runWhileThread(@NotNull String threadName, @NotNull BooleanSupplier when, @NotNull Runnable what){
-		new Thread(()->runWhile(when, what), threadName).start();
+		new Thread(() -> runWhile(when, what), threadName).start();
 	}
 	
 	public static void fileLines(@NotNull InputStream stream, @NotNull UnsafeConsumer<String, IOException> cons) throws IOException{
-		BufferedReader b=new BufferedReader(new InputStreamReader(stream, Charset.defaultCharset()));
+		BufferedReader b = new BufferedReader(new InputStreamReader(stream, Charset.defaultCharset()));
 		
-		for(String line;(line=b.readLine())!=null;){
+		for(String line; (line = b.readLine()) != null; ){
 			cons.accept(line);
 		}
 		
@@ -316,16 +316,16 @@ public class UtilL{
 	
 	public static <T> T waitForNotNull(@NotNull Supplier<T> getter, long ms, float nsUnit){
 		while(true){
-			T val=getter.get();
-			if(val!=null) return val;
+			T val = getter.get();
+			if(val != null) return val;
 			sleep(ms, (int)(NS*nsUnit));
 		}
 	}
 	
 	public static <T> T waitForNotNull(@NotNull Supplier<T> getter, long ms){
 		while(true){
-			T val=getter.get();
-			if(val!=null) return val;
+			T val = getter.get();
+			if(val != null) return val;
 			sleep(ms);
 		}
 	}
@@ -339,7 +339,7 @@ public class UtilL{
 		public final InputStream parent;
 		
 		public InputStreamSilent(InputStream parent){
-			this.parent=parent;
+			this.parent = parent;
 		}
 		
 		@Override
@@ -398,15 +398,15 @@ public class UtilL{
 	}
 	
 	public static String before(@NotNull String toSubstring, char marker){
-		int pos=toSubstring.lastIndexOf(marker);
-		if(pos==-1) return null;
+		int pos = toSubstring.lastIndexOf(marker);
+		if(pos == -1) return null;
 		return toSubstring.substring(0, pos);
 	}
 	
 	public static String after(@NotNull String toSubstring, char marker){
-		int pos=toSubstring.lastIndexOf(marker);
-		if(pos==-1) return null;
-		return toSubstring.substring(pos+1);
+		int pos = toSubstring.lastIndexOf(marker);
+		if(pos == -1) return null;
+		return toSubstring.substring(pos + 1);
 	}
 	
 	@NotNull
@@ -416,14 +416,14 @@ public class UtilL{
 	}
 	
 	public static <T> boolean contains(@NotNull T[] array, @Nullable T what){
-		if(what==null){
+		if(what == null){
 			for(T t : array){
-				if(t==null) return true;
+				if(t == null) return true;
 			}
 			return false;
 		}
 		for(T t : array){
-			if(t!=null&&t.equals(what)) return true;
+			if(t != null && t.equals(what)) return true;
 		}
 		return false;
 	}
@@ -433,22 +433,22 @@ public class UtilL{
 	}
 	
 	public static int indexOf(@NotNull int[] array, int start, int what){
-		for(;start<array.length;start++){
-			if(array[start]==what) return start;
+		for(; start<array.length; start++){
+			if(array[start] == what) return start;
 		}
 		return -1;
 	}
 	
 	public static boolean contains(@NotNull int[] array, int what){
 		for(int t : array){
-			if(t==what) return true;
+			if(t == what) return true;
 		}
 		return false;
 	}
 	
 	@NotNull
 	public static RuntimeException exitWithErrorMsg(Object... msg){
-		String msg0=TextUtil.toString(msg);
+		String msg0 = TextUtil.toString(msg);
 		LogUtil.printlnEr(msg0);
 		System.exit(-1);
 		return new RuntimeException(msg0);
@@ -456,7 +456,7 @@ public class UtilL{
 	
 	@NotNull
 	public static byte[] longToBytes(long l){
-		byte[] dest=new byte[8];
+		byte[] dest = new byte[8];
 		return longToBytes(dest, l);
 	}
 	
@@ -467,8 +467,8 @@ public class UtilL{
 	
 	@NotNull
 	public static byte[] longToBytes(@NotNull byte[] dest, int destStart, long l){
-		for(int i=7;i>=0;i--){
-			dest[destStart+i]=(byte)(l&0xFF);
+		for(int i = 7; i>=0; i--){
+			dest[destStart + i] = (byte)(l&0xFF);
 			l >>= 8;
 		}
 		return dest;
@@ -479,28 +479,28 @@ public class UtilL{
 	}
 	
 	public static long bytesToLong(int start, @NotNull byte[] b){
-		long result=0;
-		for(int i=0;i<8;i++){
-			result<<=8;
-			result|=(b[start+i]&0xFF);
+		long result = 0;
+		for(int i = 0; i<8; i++){
+			result <<= 8;
+			result |= (b[start + i]&0xFF);
 		}
 		return result;
 	}
 	
 	public static int bytesToInt(byte[] bytes, int offset){
-		int ret=0;
-		for(int i=0;i<4&&i+offset<bytes.length;i++){
-			ret<<=8;
-			ret|=(int)bytes[i+offset]&0xFF;
+		int ret = 0;
+		for(int i = 0; i<4 && i + offset<bytes.length; i++){
+			ret <<= 8;
+			ret |= (int)bytes[i + offset]&0xFF;
 		}
 		return ret;
 	}
 	
 	@NotNull
 	public static <In1, In2, Out> List<Out> concat(@NotNull List<In1> in1, @NotNull List<In2> in2, @NotNull BiFunction<In1, In2, Out> converter){
-		int       size=Math.min(in1.size(), in2.size());
-		List<Out> out =new ArrayList<>(size);
-		for(int i=0;i<size;i++){
+		int       size = Math.min(in1.size(), in2.size());
+		List<Out> out  = new ArrayList<>(size);
+		for(int i = 0; i<size; i++){
 			out.add(converter.apply(in1.get(i), in2.get(i)));
 		}
 		return out;
@@ -508,10 +508,10 @@ public class UtilL{
 	
 	@NotNull
 	public static <In1, In2, Out> Out[] concat(@NotNull In1[] in1, @NotNull In2[] in2, @NotNull IntFunction<Out[]> array, @NotNull BiFunction<In1, In2, Out> converter){
-		int   size=Math.min(in1.length, in2.length);
-		Out[] out =array.apply(size);
-		for(int i=0;i<size;i++){
-			out[i]=converter.apply(in1[i], in2[i]);
+		int   size = Math.min(in1.length, in2.length);
+		Out[] out  = array.apply(size);
+		for(int i = 0; i<size; i++){
+			out[i] = converter.apply(in1[i], in2[i]);
 		}
 		return out;
 	}
@@ -519,14 +519,14 @@ public class UtilL{
 	@NotNull
 	@SuppressWarnings("unchecked")
 	public static <T> T[] concat(@NotNull T[] a, @NotNull T[] b){
-		int aLen=a.length;
-		int bLen=b.length;
+		int aLen = a.length;
+		int bLen = b.length;
 		
-		Class<?> at =a.getClass().getComponentType();
-		Class<?> bt =b.getClass().getComponentType();
-		Class<?> typ=findClosestCommonSuper(at, bt);
+		Class<?> at  = a.getClass().getComponentType();
+		Class<?> bt  = b.getClass().getComponentType();
+		Class<?> typ = findClosestCommonSuper(at, bt);
 		
-		T[] c=array((Class<T>)typ, aLen+bLen);
+		T[] c = array((Class<T>)typ, aLen + bLen);
 		System.arraycopy(a, 0, c, 0, aLen);
 		System.arraycopy(b, 0, c, aLen, bLen);
 		
@@ -535,25 +535,25 @@ public class UtilL{
 	
 	
 	public static boolean checkFlag(byte flags, byte flag){
-		return (flags&flag)==flag;
+		return (flags&flag) == flag;
 	}
 	
 	public static boolean checkFlag(short flags, short flag){
-		return (flags&flag)==flag;
+		return (flags&flag) == flag;
 	}
 	
 	public static boolean checkFlag(int flags, int flag){
-		return (flags&flag)==flag;
+		return (flags&flag) == flag;
 	}
 	
 	public static boolean checkFlag(long flags, long flag){
-		return (flags&flag)==flag;
+		return (flags&flag) == flag;
 	}
 	
 	@NotNull
 	public static UUID hashMD5(@NotNull ByteBuffer input){
 		try{
-			MessageDigest md5=MessageDigest.getInstance("MD5");
+			MessageDigest md5 = MessageDigest.getInstance("MD5");
 			md5.update(input);
 			return UUID.nameUUIDFromBytes(md5.digest());
 		}catch(NoSuchAlgorithmException e){
@@ -569,7 +569,7 @@ public class UtilL{
 	@NotNull
 	public static UUID hashMD5(@NotNull byte[] input){
 		try{
-			MessageDigest md5=MessageDigest.getInstance("MD5");
+			MessageDigest md5 = MessageDigest.getInstance("MD5");
 			return UUID.nameUUIDFromBytes(md5.digest(input));
 		}catch(NoSuchAlgorithmException e){
 			throw uncheckedThrow(e);
@@ -579,26 +579,30 @@ public class UtilL{
 	@NotNull
 	public static String getAppData(){
 		String path;
-		String OS=System.getProperty("os.name").toUpperCase();
+		String OS = System.getProperty("os.name").toUpperCase();
 		switch(getOS()){
 			case WINDOWS:
-				path=System.getenv("APPDATA"); break;
+				path = System.getenv("APPDATA");
+				break;
 			case LINUX:
-				path=System.getProperty("user.home"); break;
+				path = System.getProperty("user.home");
+				break;
 			case MACOS:
-				path=System.getProperty("user.home")+"/Library/"; break;
+				path = System.getProperty("user.home") + "/Library/";
+				break;
 			default:
-				path=System.getProperty("user.dir"); break;
+				path = System.getProperty("user.dir");
+				break;
 		}
 		
-		return path+"/";
+		return path + "/";
 	}
 	
 	@NotNull
 	public static String fileExtension(@NotNull String fileName){
-		int i=fileName.lastIndexOf('.');
-		int p=Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
-		if(i>p) return fileName.substring(i+1);
+		int i = fileName.lastIndexOf('.');
+		int p = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+		if(i>p) return fileName.substring(i + 1);
 		return "";
 	}
 	
@@ -607,29 +611,29 @@ public class UtilL{
 		
 		public final String nativeLibExtension;
 		
-		OS(String nativeLibExtension){this.nativeLibExtension=nativeLibExtension;}
+		OS(String nativeLibExtension){ this.nativeLibExtension = nativeLibExtension; }
 	}
 	
 	private static OS OS;
 	
 	public static synchronized OS getOS(){
-		if(OS==null){
-			String os=System.getProperty("os.name").toLowerCase();
+		if(OS == null){
+			String os = System.getProperty("os.name").toLowerCase();
 			
-			if(os.contains("win")) OS=WINDOWS;
-			else if(os.contains("linux")) OS=LINUX;
-			else if(os.contains("mac")) OS=MACOS;
+			if(os.contains("win")) OS = WINDOWS;
+			else if(os.contains("linux")) OS = LINUX;
+			else if(os.contains("mac")) OS = MACOS;
 			else throw new RuntimeException("Unrecognised OS");
 		}
 		return OS;
 	}
 	
 	public static boolean isInJar(Class<?> clazz){
-		String fileName=new File(clazz.getProtectionDomain()
-		                              .getCodeSource()
-		                              .getLocation()
-		                              .getPath()).getName();
-		return fileName.endsWith(".jar")||fileName.endsWith(".war");
+		String fileName = new File(clazz.getProtectionDomain()
+		                                .getCodeSource()
+		                                .getLocation()
+		                                .getPath()).getName();
+		return fileName.endsWith(".jar") || fileName.endsWith(".war");
 	}
 	
 	public static <T extends Comparable<T>> int addRemainSorted(List<T> list, T value){
@@ -642,22 +646,22 @@ public class UtilL{
 			list.add(0, value);
 			return 0;
 		}
-		if(value.compareTo(list.get(list.size()-1))>0){
+		if(value.compareTo(list.get(list.size() - 1))>0){
 			list.add(value);
 			return list.size();
 		}
 		
-		int lo=0;
-		int hi=list.size()-1;
+		int lo = 0;
+		int hi = list.size() - 1;
 		
 		while(lo<=hi){
-			int mid=(hi+lo)/2;
+			int mid = (hi + lo)/2;
 			
-			int comp=value.compareTo(list.get(mid));
+			int comp = value.compareTo(list.get(mid));
 			if(comp<0){
-				hi=mid-1;
+				hi = mid - 1;
 			}else if(comp>0){
-				lo=mid+1;
+				lo = mid + 1;
 			}else{
 				list.add(mid, value);
 				return mid;
@@ -688,7 +692,7 @@ public class UtilL{
 	}
 	
 	public static <K extends Enum<K>, V> EnumMap<K, V> generateEnumMap(@NotNull Class<K> enumType, @NotNull Function<K, V> generator){
-		EnumMap<K, V> map=new EnumMap<>(enumType);
+		EnumMap<K, V> map = new EnumMap<>(enumType);
 		
 		for(K k : enumType.getEnumConstants()){
 			map.put(k, generator.apply(k));
@@ -697,7 +701,7 @@ public class UtilL{
 		return map;
 	}
 	
-	private static final Pattern NUMERIC_PATTERN=Pattern.compile("-?\\d+(\\.\\d+)?");
+	private static final Pattern NUMERIC_PATTERN = Pattern.compile("-?\\d+(\\.\\d+)?");
 	
 	public static boolean isNumeric(CharSequence str){
 		return NUMERIC_PATTERN.matcher(str).matches();
@@ -711,9 +715,9 @@ public class UtilL{
 	@SuppressWarnings("unchecked")
 	public static <T extends Annotation> Class<T> getAnnotationInterface(Class<? extends T> proxyClass){
 		return (Class<T>)Arrays.stream(proxyClass.getInterfaces())
-		                       .filter(c->instanceOf(proxyClass, Annotation.class))
+		                       .filter(c -> instanceOf(proxyClass, Annotation.class))
 		                       .findAny()
-		                       .orElseThrow(()->new IllegalArgumentException(proxyClass+" not an annotation"));
+		                       .orElseThrow(() -> new IllegalArgumentException(proxyClass + " not an annotation"));
 	}
 	
 	public static <T> T sysPropertyByClass(Class<?> targetClass, String varName, T defaultValue, Function<String, T> map){
@@ -721,11 +725,11 @@ public class UtilL{
 	}
 	
 	public static Optional<String> sysPropertyByClass(Class<?> targetClass, String varName){
-		return Optional.ofNullable(System.getProperty(targetClass.getName()+(varName==null||varName.isEmpty()?"":"."+varName)));
+		return Optional.ofNullable(System.getProperty(targetClass.getName() + (varName == null || varName.isEmpty()? "" : "." + varName)));
 	}
 	
 	public static Optional<String> sysProperty(String prefix, String name){
-		return sysProperty(prefix+"."+name);
+		return sysProperty(prefix + "." + name);
 	}
 	public static Optional<String> sysProperty(String name){
 		return Optional.ofNullable(System.getProperty(name));

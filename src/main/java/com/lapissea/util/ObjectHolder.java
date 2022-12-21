@@ -5,10 +5,10 @@ import java.util.Objects;
 public class ObjectHolder<T>{
 	public T obj;
 	
-	public ObjectHolder(){}
+	public ObjectHolder(){ }
 	
 	public ObjectHolder(T obj){
-		this.obj=obj;
+		this.obj = obj;
 	}
 	
 	public T getObj(){
@@ -16,7 +16,7 @@ public class ObjectHolder<T>{
 	}
 	
 	public void setObj(T obj){
-		this.obj=obj;
+		this.obj = obj;
 	}
 	
 	@Override
@@ -25,13 +25,13 @@ public class ObjectHolder<T>{
 	}
 	@Override
 	public boolean equals(Object o){
-		if(this==o) return true;
+		if(this == o) return true;
 		if(!(o instanceof ObjectHolder)) return false;
-		ObjectHolder<?> that=(ObjectHolder<?>)o;
+		ObjectHolder<?> that = (ObjectHolder<?>)o;
 		return Objects.equals(getObj(), that.getObj());
 	}
 	@Override
 	public int hashCode(){
-		return obj==null?0:obj.hashCode();
+		return obj == null? 0 : obj.hashCode();
 	}
 }

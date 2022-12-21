@@ -7,7 +7,7 @@ public class ByteBufferBackedOutputStream extends OutputStream{
 	private final ByteBuffer buf;
 	
 	public ByteBufferBackedOutputStream(ByteBuffer buf){
-		this.buf=buf;
+		this.buf = buf;
 	}
 	
 	@Override

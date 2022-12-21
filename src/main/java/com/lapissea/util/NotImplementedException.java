@@ -3,8 +3,8 @@ package com.lapissea.util;
 public class NotImplementedException extends RuntimeException{
 	
 	public static NotImplementedException infer(){
-		StackTraceElement e=Thread.currentThread().getStackTrace()[2];
-		return new NotImplementedException(e.getClassName().replace('$','.')+"#"+e.getMethodName()+" function not implemented!");
+		StackTraceElement e = Thread.currentThread().getStackTrace()[2];
+		return new NotImplementedException(e.getClassName().replace('$', '.') + "#" + e.getMethodName() + " function not implemented!");
 	}
 	
 	public NotImplementedException(){ }

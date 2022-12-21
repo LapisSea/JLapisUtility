@@ -9,15 +9,15 @@ public interface TriPredicate<A, B, C>{
 	
 	default TriPredicate<A, B, C> and(TriPredicate<? super A, ? super B, ? super C> other){
 		Objects.requireNonNull(other);
-		return (a, b, c)->test(a, b, c)&&other.test(a, b, c);
+		return (a, b, c) -> test(a, b, c) && other.test(a, b, c);
 	}
 	
 	default TriPredicate<A, B, C> negate(){
-		return (a, b, c)->!test(a, b, c);
+		return (a, b, c) -> !test(a, b, c);
 	}
 	
 	default TriPredicate<A, B, C> or(TriPredicate<? super A, ? super B, ? super C> other){
 		Objects.requireNonNull(other);
-		return (a, b, c)->test(a, b, c)||other.test(a, b, c);
+		return (a, b, c) -> test(a, b, c) || other.test(a, b, c);
 	}
 }

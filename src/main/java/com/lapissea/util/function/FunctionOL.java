@@ -9,10 +9,10 @@ public interface FunctionOL<T>{
 	
 	default <V> FunctionOL<V> compose(Function<? super V, ? extends T> before){
 		Objects.requireNonNull(before);
-		return (V v)->apply(before.apply(v));
+		return (V v) -> apply(before.apply(v));
 	}
 	
 	static <T> Function<T, T> identity(){
-		return t->t;
+		return t -> t;
 	}
 }

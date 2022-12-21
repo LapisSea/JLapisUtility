@@ -9,8 +9,8 @@ public class ByteBufferBackedInputStream extends InputStream{
 	private final int        pos;
 	
 	public ByteBufferBackedInputStream(ByteBuffer buf){
-		this.buf=buf;
-		pos=buf.position();
+		this.buf = buf;
+		pos = buf.position();
 	}
 	
 	@Override
@@ -27,7 +27,7 @@ public class ByteBufferBackedInputStream extends InputStream{
 			return -1;
 		}
 		
-		len=Math.min(len, buf.remaining());
+		len = Math.min(len, buf.remaining());
 		buf.get(bytes, off, len);
 		return len;
 	}

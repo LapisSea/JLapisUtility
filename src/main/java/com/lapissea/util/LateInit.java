@@ -27,11 +27,11 @@ public class LateInit<T, E extends Throwable>{
 	}
 	
 	public LateInit(UnsafeSupplier<T, E> initializer, Executor executor){
-		executor.execute(()->{
+		executor.execute(() -> {
 			try{
-				result=Objects.requireNonNull(initializer.get());
+				result = Objects.requireNonNull(initializer.get());
 			}catch(Throwable e){
-				err=(E)e;
+				err = (E)e;
 			}finally{
 				synchronized(LateInit.this){
 					LateInit.this.notifyAll();
@@ -41,7 +41,7 @@ public class LateInit<T, E extends Throwable>{
 	}
 	
 	public boolean isInitialized(){
-		return result!=null||err!=null;
+		return result != null || err != null;
 	}
 	
 	public void block(){
@@ -58,31 +58,31 @@ public class LateInit<T, E extends Throwable>{
 	
 	public T get() throws E{
 		if(!isInitialized()) block();
-		if(err!=null) throw err;
+		if(err != null) throw err;
 		return result;
 	}
 	
 	public void ifInited(Consumer<T> action) throws E{
 		if(isInitialized()){
-			if(err!=null) throw err;
+			if(err != null) throw err;
 			action.accept(result);
 		}
 	}
 	
 	@Override
 	public boolean equals(Object o){
-		if(this==o) return true;
+		if(this == o) return true;
 		if(!(o instanceof LateInit)) return false;
-		LateInit<?, ?> lateInit=(LateInit<?, ?>)o;
-		return isInitialized()==lateInit.isInitialized()&&
-		       Objects.equals(result, lateInit.result)&&
+		LateInit<?, ?> lateInit = (LateInit<?, ?>)o;
+		return isInitialized() == lateInit.isInitialized() &&
+		       Objects.equals(result, lateInit.result) &&
 		       Objects.equals(err, lateInit.err);
 	}
 	
 	@Override
 	public String toString(){
 		if(!isInitialized()) return "LateInit<...>";
-		if(err!=null) return "LateInit<failed: "+err+">";
-		return "LateInit("+TextUtil.toString(result)+")";
+		if(err != null) return "LateInit<failed: " + err + ">";
+		return "LateInit(" + TextUtil.toString(result) + ")";
 	}
 }

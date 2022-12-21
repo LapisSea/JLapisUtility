@@ -13,7 +13,7 @@ public class ArrayViewList<T> extends AbstractList<T>{
 	}
 	
 	public static <T> Map.Entry<Consumer<T[]>, ArrayViewList<T>> create(T[] source){
-		ArrayViewList<T> arr=new ArrayViewList<>(source);
+		ArrayViewList<T> arr = new ArrayViewList<>(source);
 		return new AbstractMap.SimpleImmutableEntry<>(arr::setSource, arr);
 	}
 	
@@ -24,17 +24,17 @@ public class ArrayViewList<T> extends AbstractList<T>{
 	
 	@NotNull
 	public static <T> ArrayViewList<T> create(T[] source, @Nullable Consumer<Consumer<T[]>> setterConsumer){
-		ArrayViewList<T> arr=new ArrayViewList<>(source);
-		if(setterConsumer!=null) setterConsumer.accept(arr::setSource);
+		ArrayViewList<T> arr = new ArrayViewList<>(source);
+		if(setterConsumer != null) setterConsumer.accept(arr::setSource);
 		return arr;
 	}
 	
 	protected ArrayViewList(T[] source){
-		this.source=source;
+		this.source = source;
 	}
 	
 	private void setSource(T[] source){
-		this.source=source;
+		this.source = source;
 	}
 	
 	@Override

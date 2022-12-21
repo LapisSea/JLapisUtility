@@ -8,7 +8,7 @@ public interface TriConsumer<A, B, C>{
 	
 	default TriConsumer<A, B, C> andThen(TriConsumer<A, B, C> after){
 		Objects.requireNonNull(after);
-		return (a, b, c)->{
+		return (a, b, c) -> {
 			accept(a, b, c);
 			after.accept(a, b, c);
 		};

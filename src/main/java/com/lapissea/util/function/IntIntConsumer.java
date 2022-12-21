@@ -12,7 +12,7 @@ public interface IntIntConsumer{
 	default IntIntConsumer andThen(@NotNull IntIntConsumer after){
 		Objects.requireNonNull(after);
 		
-		return (l, r)->{
+		return (l, r) -> {
 			accept(l, r);
 			after.accept(l, r);
 		};

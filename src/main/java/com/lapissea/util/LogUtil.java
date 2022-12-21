@@ -30,8 +30,8 @@ import static com.lapissea.util.UtilL.checkFlag;
 @SuppressWarnings({"rawtypes", "unused"})
 public class LogUtil{
 	
-	private static final Map<String, String> SKIP_METHODS=new ConcurrentHashMap<>();
-	private static final Set<String>         SKIP_CLASSES=Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private static final Map<String, String> SKIP_METHODS = new ConcurrentHashMap<>();
+	private static final Set<String>         SKIP_CLASSES = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	
 	public static void registerSkipMethod(Method method){
 		SKIP_METHODS.put(method.getName(), method.getDeclaringClass().getName());
@@ -46,26 +46,26 @@ public class LogUtil{
 		registerSkipClass(LogUtil.class);
 	}
 	
-	private static final long START_TIME=System.currentTimeMillis();
+	private static final long START_TIME = System.currentTimeMillis();
 	
 	@SuppressWarnings("PointlessBitwiseExpression")
 	public static class Init{
 		
-		private Init(){}
+		private Init(){ }
 		
 		private static boolean attached;
 		
-		public static final int USE_CALL_POS          =1<<0;
-		public static final int USE_CALL_POS_CLICKABLE=1<<1;
-		public static final int USE_CALL_THREAD       =1<<2;
-		public static final int DISABLED              =1<<3;
-		public static final int USE_TABULATED_HEADER  =1<<4;
+		public static final int USE_CALL_POS           = 1<<0;
+		public static final int USE_CALL_POS_CLICKABLE = 1<<1;
+		public static final int USE_CALL_THREAD        = 1<<2;
+		public static final int DISABLED               = 1<<3;
+		public static final int USE_TABULATED_HEADER   = 1<<4;
 		
-		public static PrintStream OUT=System.out;
-		public static PrintStream ERR=System.err;
+		public static PrintStream OUT = System.out;
+		public static PrintStream ERR = System.err;
 		
 		static{
-			Runtime.getRuntime().addShutdownHook(new Thread(()->{
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				synchronized(System.out){
 					synchronized(System.err){
 						detach();
@@ -73,7 +73,7 @@ public class LogUtil{
 						System.err.flush();
 					}
 				}
-			}, LogUtil.class.getSimpleName()+"-Flush"));
+			}, LogUtil.class.getSimpleName() + "-Flush"));
 		}
 		
 		/**
@@ -88,7 +88,7 @@ public class LogUtil{
 			}
 			if(checkFlag(flags, DISABLED)) return;
 			
-			attached=true;
+			attached = true;
 			
 			class P extends PrintStream{
 				
@@ -108,31 +108,31 @@ public class LogUtil{
 				}
 			}
 			
-			Function<StackTraceElement, String> header=getHeader(flags);
+			Function<StackTraceElement, String> header = getHeader(flags);
 			
 			System.setOut(new P(new DebugHeaderStream(System.out, header)));
 			System.setErr(new P(new DebugHeaderStream(System.err, header)));
 			
 		}
 		
-		private static final Pattern KOTLIN_COMPANION_ANNOTATION=Pattern.compile("\\$Proxy[0-9]+]");
+		private static final Pattern KOTLIN_COMPANION_ANNOTATION = Pattern.compile("\\$Proxy[0-9]+]");
 		
 		private static String filterClassName(String className){
 			
 			//check and remove companion class
-			String companionMarker="$Companion";
+			String companionMarker = "$Companion";
 			
-			int    end=className.indexOf(companionMarker)+companionMarker.length();
-			String s  =className.length()>=end?className.substring(0, end):className;
+			int    end = className.indexOf(companionMarker) + companionMarker.length();
+			String s   = className.length()>=end? className.substring(0, end) : className;
 			
 			if(s.endsWith(companionMarker)){
 				try{
-					Class comp=Class.forName(s);
-					if(Arrays.stream(comp.getAnnotations()).anyMatch(a->a.getClass().getSimpleName().contains("$Proxy"))){
-						s=s.substring(0, s.lastIndexOf(companionMarker));
+					Class comp = Class.forName(s);
+					if(Arrays.stream(comp.getAnnotations()).anyMatch(a -> a.getClass().getSimpleName().contains("$Proxy"))){
+						s = s.substring(0, s.lastIndexOf(companionMarker));
 					}
 					return s;
-				}catch(ClassNotFoundException e){}
+				}catch(ClassNotFoundException e){ }
 			}
 			
 			return className;
@@ -140,74 +140,74 @@ public class LogUtil{
 		
 		private static Function<StackTraceElement, String> getHeader(int flags){
 			
-			boolean tabulated=checkFlag(flags, USE_TABULATED_HEADER);
+			boolean tabulated = checkFlag(flags, USE_TABULATED_HEADER);
 			
 			if(checkFlag(flags, USE_CALL_THREAD)){
-				Tabulator threadTab=new Tabulator(tabulated);
+				Tabulator threadTab = new Tabulator(tabulated);
 				
 				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
 					
-					Tabulator stackTab=new Tabulator(tabulated);
-					threadTab.onGrow=stackTab::reduce;
+					Tabulator stackTab = new Tabulator(tabulated);
+					threadTab.onGrow = stackTab::reduce;
 					
-					return stack->{
-						String threadSt="["+Thread.currentThread().getName()+"] ";
-						String stackSt ="["+stack.toString()+"]";
+					return stack -> {
+						String threadSt = "[" + Thread.currentThread().getName() + "] ";
+						String stackSt  = "[" + stack.toString() + "]";
 						
-						return threadSt+threadTab.getTab(threadSt.length())+
-						       stackSt+stackTab.getTab(stackSt.length())+": ";
+						return threadSt + threadTab.getTab(threadSt.length()) +
+						       stackSt + stackTab.getTab(stackSt.length()) + ": ";
 					};
 				}
 				
 				if(checkFlag(flags, USE_CALL_POS)){
 					
-					Tabulator stackTab=new Tabulator(tabulated);
-					threadTab.onGrow=stackTab::reduce;
+					Tabulator stackTab = new Tabulator(tabulated);
+					threadTab.onGrow = stackTab::reduce;
 					
-					return stack->{
-						String methodName=stack.getMethodName();
-						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-						String className=filterClassName(stack.getClassName());
-						String threadSt ="["+Thread.currentThread().getName()+"] ";
-						String stackSt  ="["+className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$'))+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
+					return stack -> {
+						String methodName = stack.getMethodName();
+						if(methodName.startsWith("lambda$")) methodName = methodName.substring(7);
+						String className = filterClassName(stack.getClassName());
+						String threadSt  = "[" + Thread.currentThread().getName() + "] ";
+						String stackSt   = "[" + className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1) + '.' + methodName + ':' + stack.getLineNumber() + "]";
 						
-						return threadSt+threadTab.getTab(threadSt.length())+stackSt+stackTab.getTab(stackSt.length())+": ";
+						return threadSt + threadTab.getTab(threadSt.length()) + stackSt + stackTab.getTab(stackSt.length()) + ": ";
 					};
 				}
 				
-				return stack->{
-					String threadSt="["+Thread.currentThread().getName()+"]";
+				return stack -> {
+					String threadSt = "[" + Thread.currentThread().getName() + "]";
 					
-					return threadSt+threadTab.getTab(threadSt.length())+": ";
+					return threadSt + threadTab.getTab(threadSt.length()) + ": ";
 				};
 			}else{
 				
 				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
 					
-					Tabulator stackTab=new Tabulator(tabulated);
+					Tabulator stackTab = new Tabulator(tabulated);
 					
-					return stack->{
-						String stackSt="["+stack.toString()+"]";
-						return stackSt+stackTab.getTab(stackSt.length())+": ";
+					return stack -> {
+						String stackSt = "[" + stack.toString() + "]";
+						return stackSt + stackTab.getTab(stackSt.length()) + ": ";
 					};
 				}
 				
 				if(checkFlag(flags, USE_CALL_POS)){
 					
-					Tabulator stackTab=new Tabulator(tabulated);
+					Tabulator stackTab = new Tabulator(tabulated);
 					
-					return stack->{
-						String methodName=stack.getMethodName();
-						if(methodName.startsWith("lambda$")) methodName=methodName.substring(7);
-						String className=filterClassName(stack.getClassName());
+					return stack -> {
+						String methodName = stack.getMethodName();
+						if(methodName.startsWith("lambda$")) methodName = methodName.substring(7);
+						String className = filterClassName(stack.getClassName());
 						
-						String stackSt="["+className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$'))+1)+'.'+methodName+':'+stack.getLineNumber()+"]";
+						String stackSt = "[" + className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1) + '.' + methodName + ':' + stack.getLineNumber() + "]";
 						
-						return stackSt+stackTab.getTab(stackSt.length())+": ";
+						return stackSt + stackTab.getTab(stackSt.length()) + ": ";
 					};
 				}
 				
-				return stack->"";
+				return stack -> "";
 			}
 		}
 		
@@ -218,46 +218,46 @@ public class LogUtil{
 		
 		public static void detach(){
 			if(!attached) return;
-			if(OUT==null) return;
+			if(OUT == null) return;
 			System.setOut(OUT);
 			System.setErr(ERR);
-			OUT=null;
-			ERR=null;
+			OUT = null;
+			ERR = null;
 		}
 		
 		@SuppressWarnings({"AutoBoxing", "AutoUnboxing"})
 		private static final class Tabulator{
 			
-			private final List<PairM<Integer, Long>> sizeTimeTable=new ArrayList<>();
+			private final List<PairM<Integer, Long>> sizeTimeTable = new ArrayList<>();
 			
-			public IntConsumer onGrow=i->{};
+			public IntConsumer onGrow = i -> { };
 			boolean tabulated;
 			
 			public Tabulator(boolean tabulated){
-				this.tabulated=tabulated;
+				this.tabulated = tabulated;
 			}
 			
 			public synchronized String getTab(int size){
 				if(!tabulated) return "";
 				
-				long tim=System.currentTimeMillis();
+				long tim = System.currentTimeMillis();
 				
-				int max=0;
+				int max = 0;
 				
-				Iterator<PairM<Integer, Long>> i=sizeTimeTable.iterator();
+				Iterator<PairM<Integer, Long>> i = sizeTimeTable.iterator();
 				while(i.hasNext()){
-					PairM<Integer, Long> p=i.next();
-					if(p.obj2+1000<tim) i.remove();
-					else max=Math.max(max, p.obj1);
+					PairM<Integer, Long> p = i.next();
+					if(p.obj2 + 1000<tim) i.remove();
+					else max = Math.max(max, p.obj1);
 				}
 				if(size>max){
-					onGrow.accept(size-max);
+					onGrow.accept(size - max);
 				}
 				
 				sizeTimeTable.add(new PairM<>(size, tim));
 				
-				int tabSize  =Math.max(0, max-size);
-				int totalSize=tabSize+size;
+				int tabSize   = Math.max(0, max - size);
+				int totalSize = tabSize + size;
 				
 				return TextUtil.stringFill(tabSize, ' ');
 			}
@@ -265,11 +265,11 @@ public class LogUtil{
 			
 			public void reduce(int amount){
 				if(!tabulated) return;
-				String                         s=sizeTimeTable.toString();
-				Iterator<PairM<Integer, Long>> i=sizeTimeTable.iterator();
+				String                         s = sizeTimeTable.toString();
+				Iterator<PairM<Integer, Long>> i = sizeTimeTable.iterator();
 				while(i.hasNext()){
-					PairM<Integer, Long> p=i.next();
-					p.obj1-=amount;
+					PairM<Integer, Long> p = i.next();
+					p.obj1 -= amount;
 					if(p.obj1<0){
 						i.remove();
 					}
@@ -281,16 +281,16 @@ public class LogUtil{
 		private static final class DebugHeaderStream extends OutputStream{
 			
 			private final OutputStream  child;
-			private final StringBuilder lineBuild  =new StringBuilder();
-			private       boolean       needsHeader=true;
+			private final StringBuilder lineBuild   = new StringBuilder();
+			private       boolean       needsHeader = true;
 			
 			private final Function<StackTraceElement, String> header;
 			
-			private final StringBuilder sb=new StringBuilder();
+			private final StringBuilder sb = new StringBuilder();
 			
 			public DebugHeaderStream(OutputStream child, Function<StackTraceElement, String> header){
-				this.header=header;
-				this.child=child;
+				this.header = header;
+				this.child = child;
 			}
 			
 			@Override
@@ -298,12 +298,12 @@ public class LogUtil{
 				sb.setLength(0);
 				sb.append(header());
 				
-				for(int i=0;i<lineBuild.length();i++){
-					char b=lineBuild.charAt(i);
+				for(int i = 0; i<lineBuild.length(); i++){
+					char b = lineBuild.charAt(i);
 					
 					sb.append(header());
 					
-					if(b=='\n') needsHeader=true;
+					if(b == '\n') needsHeader = true;
 					sb.append(b);
 				}
 				
@@ -313,9 +313,9 @@ public class LogUtil{
 				child.flush();
 				if(sb.capacity()>sb.length()*2) sb.trimToSize();
 				
-				TABLE_LAST_FLAG=TABLE_FLAG;
+				TABLE_LAST_FLAG = TABLE_FLAG;
 				if(TABLE_FLAG){
-					TABLE_FLAG=false;
+					TABLE_FLAG = false;
 				}else{
 					TABLE_COLUMNS.clear();
 				}
@@ -324,7 +324,7 @@ public class LogUtil{
 			
 			private String header(){
 				if(!needsHeader) return "";
-				needsHeader=false;
+				needsHeader = false;
 				
 				try{
 					return debugHeader();
@@ -337,9 +337,9 @@ public class LogUtil{
 			
 			@Override
 			public void write(int b){
-				if(b=='\r') return;
+				if(b == '\r') return;
 				
-				if(b=='\n'){
+				if(b == '\n'){
 					lineBuild.append(TextUtil.NEW_LINE);
 				}else{
 					
@@ -348,10 +348,10 @@ public class LogUtil{
 			}
 			
 			private String debugHeader() throws IOException{
-				StackTraceElement stack=getCallStack();
+				StackTraceElement stack = getCallStack();
 				boolean           shouldPrint;
-				shouldPrint=!stack.getClassName().equals(Throwable.class.getName()+"$WrappedPrintStream");
-				if(shouldPrint) shouldPrint=!stack.getClassName().equals(ThreadGroup.class.getName());
+				shouldPrint = !stack.getClassName().equals(Throwable.class.getName() + "$WrappedPrintStream");
+				if(shouldPrint) shouldPrint = !stack.getClassName().equals(ThreadGroup.class.getName());
 				
 				if(shouldPrint){
 					return header.apply(stack);
@@ -360,24 +360,24 @@ public class LogUtil{
 			}
 			
 			private StackTraceElement getCallStack(){
-				StackTraceElement[] trace=Thread.currentThread().getStackTrace();
+				StackTraceElement[] trace = Thread.currentThread().getStackTrace();
 				
-				int depth=0;
+				int depth = 0;
 				
-				for(int i=depth;i<trace.length;i++){
-					String clazz =trace[i].getClassName();
-					String method=trace[i].getMethodName();
-					if(clazz.equals(PrintStream.class.getName())&&
-					   (method.equals("print")||method.equals("println"))){
-						depth=i;
+				for(int i = depth; i<trace.length; i++){
+					String clazz  = trace[i].getClassName();
+					String method = trace[i].getMethodName();
+					if(clazz.equals(PrintStream.class.getName()) &&
+					   (method.equals("print") || method.equals("println"))){
+						depth = i;
 						break;
 					}
 				}
 				
-				for(int i=depth;i<trace.length;i++){
-					String clazz=trace[i].getClassName();
+				for(int i = depth; i<trace.length; i++){
+					String clazz = trace[i].getClassName();
 					if(clazz.equals(LogUtil.class.getName())){
-						depth=i;
+						depth = i;
 						break;
 					}
 				}
@@ -386,11 +386,11 @@ public class LogUtil{
 				
 				while(true){
 					depth++;
-					String stackClassName=trace[depth].getClassName();
+					String stackClassName = trace[depth].getClassName();
 					if(stackClassName.startsWith("java.util")) continue;
 					if(stackClassName.startsWith("java.lang")) continue;
 					if(SKIP_CLASSES.contains(stackClassName)) continue;
-					String cName=SKIP_METHODS.get(trace[depth].getMethodName());
+					String cName = SKIP_METHODS.get(trace[depth].getMethodName());
 					if(stackClassName.equals(cName)) continue;
 					if(trace[depth].getMethodName().startsWith("forEach")) continue;
 					break;
@@ -405,8 +405,8 @@ public class LogUtil{
 			private final OutputStream s1, s2;
 			
 			public SplitStream(OutputStream s1, OutputStream s2){
-				this.s1=s1;
-				this.s2=s2;
+				this.s1 = s1;
+				this.s2 = s2;
 			}
 			
 			@Override
@@ -432,43 +432,43 @@ public class LogUtil{
 	}
 	
 	public static void println(int obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(float obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(long obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(double obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(char obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(byte obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(boolean obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(short obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(String obj){
-		out(obj+"\n");
+		out(obj + "\n");
 	}
 	
 	public static void println(Object obj){
-		out(TextUtil.toString(obj)+"\n");
+		out(TextUtil.toString(obj) + "\n");
 	}
 	
 	public static void print(Object... objs){
@@ -476,7 +476,7 @@ public class LogUtil{
 	}
 	
 	public static void println(Object... objs){
-		out(TextUtil.toString(objs)+"\n");
+		out(TextUtil.toString(objs) + "\n");
 	}
 	
 	//================================================
@@ -494,7 +494,7 @@ public class LogUtil{
 	}
 	
 	public static void printlnEr(Object obj){
-		err(TextUtil.toString(obj)+"\n");
+		err(TextUtil.toString(obj) + "\n");
 	}
 	
 	public static void printEr(Object... objs){
@@ -502,7 +502,7 @@ public class LogUtil{
 	}
 	
 	public static void printlnEr(Object... objs){
-		err(TextUtil.toString(objs)+"\n");
+		err(TextUtil.toString(objs) + "\n");
 	}
 	
 	//================================================
@@ -512,13 +512,13 @@ public class LogUtil{
 	}
 	
 	public static String getFunctionTrace(int count, CharSequence splitter){
-		StringBuilder line=new StringBuilder();
+		StringBuilder line = new StringBuilder();
 		
-		StackTraceElement[] trace=Thread.currentThread().getStackTrace();
-		if(count>=trace.length) count=trace.length-1;
-		for(int i=count+1;i>=2;i--){
+		StackTraceElement[] trace = Thread.currentThread().getStackTrace();
+		if(count>=trace.length) count = trace.length - 1;
+		for(int i = count + 1; i>=2; i--){
 			line.append(trace[i].getMethodName()).append('(').append(trace[i].getLineNumber()).append(')');
-			if(i!=2) line.append(splitter);
+			if(i != 2) line.append(splitter);
 		}
 		return line.toString();
 	}
@@ -551,20 +551,20 @@ public class LogUtil{
 	}
 	
 	public static void printStackTrace(@Nullable String msg, @NotNull StackTraceElement[] a1){
-		StringBuilder result=new StringBuilder();
+		StringBuilder result = new StringBuilder();
 		
-		if(msg==null){
+		if(msg == null){
 			result.append("Invoke time: ").append(new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date())).append("\n");
 		}else result.append(msg).append("\n");
 		
-		int length=0;
-		for(int i=2;i<a1.length;i++){
-			StackTraceElement a=a1[i];
-			String            s=a.toString();
+		int length = 0;
+		for(int i = 2; i<a1.length; i++){
+			StackTraceElement a = a1[i];
+			String            s = a.toString();
 			result.append(s).append("\n");
-			length=Math.max(s.length(), length);
+			length = Math.max(s.length(), length);
 		}
-		for(int b=0;b<=length/4;b++)
+		for(int b = 0; b<=length/4; b++)
 			result.append("_/\\_");
 		
 		printlnEr(result);
@@ -577,19 +577,19 @@ public class LogUtil{
 		int width;
 		
 		public TableColumn(String name){
-			this.name=name;
-			this.width=name.length();
+			this.name = name;
+			this.width = name.length();
 		}
 		
 		void gibWidth(int w){
-			width=Math.max(width, w);
+			width = Math.max(width, w);
 		}
 		
 		@Override
 		public String toString(){
-			StringBuilder sb=new StringBuilder(width+2);
+			StringBuilder sb = new StringBuilder(width + 2);
 			sb.append(' ').append(name);
-			for(int i=0;i<width-name.length();i++){
+			for(int i = 0; i<width - name.length(); i++){
 				sb.append(' ');
 			}
 			sb.append(' ');
@@ -597,55 +597,55 @@ public class LogUtil{
 		}
 	}
 	
-	private static final List<TableColumn> TABLE_COLUMNS  =new ArrayList<>(1);
-	private static       boolean           TABLE_FLAG     =false;
-	private static       boolean           TABLE_LAST_FLAG=false;
+	private static final List<TableColumn> TABLE_COLUMNS   = new ArrayList<>(1);
+	private static       boolean           TABLE_FLAG      = false;
+	private static       boolean           TABLE_LAST_FLAG = false;
 	
 	private static boolean notKotlinData(Class c){
-		List<Method> functs   =new ArrayList<>(Arrays.asList(c.getDeclaredMethods()));
-		Field[]      fs       =c.getDeclaredFields();
-		int          compCount=(int)functs.stream().filter(m->m.getName().matches("component[0-9]+")).count();
+		List<Method> functs    = new ArrayList<>(Arrays.asList(c.getDeclaredMethods()));
+		Field[]      fs        = c.getDeclaredFields();
+		int          compCount = (int)functs.stream().filter(m -> m.getName().matches("component[0-9]+")).count();
 		
 		
-		if(fs.length!=compCount) return true;
+		if(fs.length != compCount) return true;
 		
 		for(Field f : fs){
-			String n=f.getName();
-			if(!functs.removeIf(t->t.getName().equals("get"+TextUtil.firstToUpperCase(n)))) return true;
+			String n = f.getName();
+			if(!functs.removeIf(t -> t.getName().equals("get" + TextUtil.firstToUpperCase(n)))) return true;
 		}
 		
 		return false;
 	}
 	
 	//returns null if object type is suboptimal
-	private static final List<Function<Object, Map<String, String>>> OBJECT_SCANNERS=new CopyOnWriteArrayList<>(Arrays.asList(
-		map->map instanceof Map?((Map<?, ?>)map).entrySet().stream().collect(Collectors.toMap((Map.Entry e)->IN_TABLE_TO_STRINGS.toString(e.getKey()), (Map.Entry e)->IN_TABLE_TO_STRINGS.toString(e.getValue()))):null,
+	private static final List<Function<Object, Map<String, String>>> OBJECT_SCANNERS = new CopyOnWriteArrayList<>(Arrays.asList(
+		map -> map instanceof Map? ((Map<?, ?>)map).entrySet().stream().collect(Collectors.toMap((Map.Entry e) -> IN_TABLE_TO_STRINGS.toString(e.getKey()), (Map.Entry e) -> IN_TABLE_TO_STRINGS.toString(e.getValue()))) : null,
 		//kotlin object
-		row->{
-			Class<?> c=row.getClass();
+		row -> {
+			Class<?> c = row.getClass();
 			if(notKotlinData(c)) return null;
 			
-			Field[]                       fs   =c.getDeclaredFields();
-			LinkedHashMap<String, String> table=new LinkedHashMap<>(fs.length);
+			Field[]                       fs    = c.getDeclaredFields();
+			LinkedHashMap<String, String> table = new LinkedHashMap<>(fs.length);
 			for(Field f : fs){
 				f.setAccessible(true);
 				try{
 					table.put(f.getName(), IN_TABLE_TO_STRINGS.toString(f.get(row)));
-				}catch(IllegalAccessException ignored){}
+				}catch(IllegalAccessException ignored){ }
 			}
 			
 			return table;
 		},
 		//regular object
-		o->{
-			LinkedHashMap<String, String> data=new LinkedHashMap<>();
+		o -> {
+			LinkedHashMap<String, String> data = new LinkedHashMap<>();
 			
-			mapObjectValues(o, (name, obj)->{
-				if(!JSON_NULL_PRINT&&obj==null) return;
+			mapObjectValues(o, (name, obj) -> {
+				if(!JSON_NULL_PRINT && obj == null) return;
 				data.put(name, IN_TABLE_TO_STRINGS.toString(obj));
 			});
 			
-			if(data.isEmpty()) data.put("hash", o.hashCode()+"");
+			if(data.isEmpty()) data.put("hash", o.hashCode() + "");
 			
 			return data;
 		}
@@ -655,8 +655,8 @@ public class LogUtil{
 		OBJECT_SCANNERS.add(scanner);
 	}
 	public static void registerCustomObjectScanner(Function<Object, Map<String, Object>> scanner){
-		OBJECT_SCANNERS.add(o->{
-			Map<String, Object> map=scanner.apply(o);
+		OBJECT_SCANNERS.add(o -> {
+			Map<String, Object> map = scanner.apply(o);
 			for(Map.Entry<String, Object> e : map.entrySet()){
 				if(e.getValue() instanceof String) continue;
 				e.setValue(TextUtil.toString(e.getValue()));
@@ -668,15 +668,15 @@ public class LogUtil{
 	
 	private static Map<String, String> objectToMap(Object row){
 		for(Function<Object, Map<String, String>> objectScanner : OBJECT_SCANNERS){
-			Map<String, String> mapped=objectScanner.apply(row);
-			if(mapped!=null) return mapped;
+			Map<String, String> mapped = objectScanner.apply(row);
+			if(mapped != null) return mapped;
 		}
 		throw new RuntimeException();
 	}
 	
 	public static void printTable(Object row){
 		
-		Class c=row.getClass();
+		Class c = row.getClass();
 		
 		if(c.isArray()){
 			printTable((Object[])row);
@@ -684,12 +684,12 @@ public class LogUtil{
 		}
 		
 		if(row instanceof Iterable){
-			List<Map<String, String>> collective=new ArrayList<>();
-			Set<String>               names     =new HashSet<>();
+			List<Map<String, String>> collective = new ArrayList<>();
+			Set<String>               names      = new HashSet<>();
 			
 			for(Object r : ((Iterable)row)){
 				
-				Map<String, String> mapped=objectToMap(r);
+				Map<String, String> mapped = objectToMap(r);
 				names.addAll(mapped.keySet());
 				
 				collective.add(mapped);
@@ -704,27 +704,27 @@ public class LogUtil{
 			}
 			
 			if(collective.size()>1){
-				int[] growthProtection=new int[names.size()];
+				int[] growthProtection = new int[names.size()];
 				
 				for(Map<String, String> r : collective){
-					Iterator<String> iter=r.values().iterator();
+					Iterator<String> iter = r.values().iterator();
 					
-					for(int i=0;i<growthProtection.length;i++){
-						int len=iter.next().length();
+					for(int i = 0; i<growthProtection.length; i++){
+						int len = iter.next().length();
 						if(growthProtection[i]<len){
-							growthProtection[i]=len;
+							growthProtection[i] = len;
 						}
 					}
 				}
 				
-				Iterator<Map.Entry<String, String>> iter=collective.get(0).entrySet().iterator();
+				Iterator<Map.Entry<String, String>> iter = collective.get(0).entrySet().iterator();
 				
 				for(int max : growthProtection){
-					Map.Entry<String, String> e=iter.next();
+					Map.Entry<String, String> e = iter.next();
 					
-					int len=e.getValue().length();
+					int len = e.getValue().length();
 					if(max>len){
-						e.setValue(e.getValue()+stringFill(max-len, ' '));
+						e.setValue(e.getValue() + stringFill(max - len, ' '));
 					}
 				}
 			}
@@ -742,11 +742,11 @@ public class LogUtil{
 	public static void printTable(@NotNull Object... row){
 		
 		synchronized(System.out){
-			if(row.length%2!=0) throw new IllegalArgumentException();
+			if(row.length%2 != 0) throw new IllegalArgumentException();
 			
-			Map<Object, Object> table=new LinkedHashMap<>();
-			for(int i=0, j=row.length/2;i<j;i++){
-				table.put(row[i*2], row[i*2+1]);
+			Map<Object, Object> table = new LinkedHashMap<>();
+			for(int i = 0, j = row.length/2; i<j; i++){
+				table.put(row[i*2], row[i*2 + 1]);
 			}
 			printTable(table);
 		}
@@ -754,10 +754,10 @@ public class LogUtil{
 	
 	public static void printTable(@NotNull Object[] rowNames, @NotNull Object... rowValues){
 		synchronized(System.out){
-			assert rowNames.length==rowValues.length;
+			assert rowNames.length == rowValues.length;
 			
-			Map<Object, Object> table=new LinkedHashMap<>();
-			for(int i=0, j=rowNames.length;i<j;i++){
+			Map<Object, Object> table = new LinkedHashMap<>();
+			for(int i = 0, j = rowNames.length; i<j; i++){
 				table.put(rowNames[i], rowValues[i]);
 			}
 			printTable(table);
@@ -767,29 +767,29 @@ public class LogUtil{
 	public static void printTable(String keyName, String valueName, Map<?, ?> data){
 		if(data.isEmpty()) return;
 		
-		List<String> keys =new ArrayList<>(data.size()), values=new ArrayList<>(data.size());
-		int[]        sizes={keyName.length(), valueName.length()};
+		List<String> keys  = new ArrayList<>(data.size()), values = new ArrayList<>(data.size());
+		int[]        sizes = {keyName.length(), valueName.length()};
 		
-		data.forEach((key, value)->{
+		data.forEach((key, value) -> {
 			String k, v;
-			keys.add(k=TextUtil.toString(key));
-			values.add(v=TextUtil.toString(value));
+			keys.add(k = TextUtil.toString(key));
+			values.add(v = TextUtil.toString(value));
 			
-			sizes[0]=Math.max(sizes[0], k.length());
-			sizes[1]=Math.max(sizes[1], v.length());
+			sizes[0] = Math.max(sizes[0], k.length());
+			sizes[1] = Math.max(sizes[1], v.length());
 		});
-		String k=keys.get(0);
+		String k = keys.get(0);
 		if(k.length()<sizes[0]){
-			keys.set(0, k+TextUtil.stringFill(sizes[0]-k.length(), ' '));
+			keys.set(0, k + TextUtil.stringFill(sizes[0] - k.length(), ' '));
 		}
-		String v=values.get(0);
+		String v = values.get(0);
 		if(v.length()<sizes[1]){
-			values.set(0, v+TextUtil.stringFill(sizes[1]-v.length(), ' '));
+			values.set(0, v + TextUtil.stringFill(sizes[1] - v.length(), ' '));
 		}
 		
-		Map<String, String> row=new LinkedHashMap<>(2);
+		Map<String, String> row = new LinkedHashMap<>(2);
 		
-		for(int i=0;i<data.size();i++){
+		for(int i = 0; i<data.size(); i++){
 			row.put(keyName, keys.get(i));
 			row.put(valueName, values.get(i));
 			printTable(row);
@@ -801,27 +801,27 @@ public class LogUtil{
 	public static void printTable(Map<?, ?> row){
 		if(!Init.attached) Init.attach(0);
 		synchronized(System.out){
-			Map<String, String> rowSafe=new LinkedHashMap<>(row.size());
+			Map<String, String> rowSafe = new LinkedHashMap<>(row.size());
 			
-			Function<Object, String> toString=o->TextUtil.toTableString(o).replace("\n", "\\n");
-			row.forEach((k, v)->{
-				String val=toString.apply(v);
+			Function<Object, String> toString = o -> TextUtil.toTableString(o).replace("\n", "\\n");
+			row.forEach((k, v) -> {
+				String val = toString.apply(v);
 				
 				//resolve tabs to local table space
-				if(val.indexOf('\t')!=-1){
+				if(val.indexOf('\t') != -1){
 					
-					StringBuilder sb=new StringBuilder(val.length()+20);
+					StringBuilder sb = new StringBuilder(val.length() + 20);
 					
-					int pos=0;
+					int pos = 0;
 					for(char c : val.toCharArray()){
 						
-						if(c!='\t'){
+						if(c != '\t'){
 							sb.append(c);
 							pos++;
 							continue;
 						}
 						
-						int requiredPos=(pos/4+1)*4;
+						int requiredPos = (pos/4 + 1)*4;
 						
 						while(pos<requiredPos){
 							sb.append(' ');
@@ -830,37 +830,37 @@ public class LogUtil{
 						
 					}
 					
-					val=sb.toString();
+					val = sb.toString();
 				}
 				rowSafe.put(toString.apply(k), val);
 			});
 			
-			if(TABLE_COLUMNS.stream().noneMatch(s->rowSafe.containsKey(s.name))) TABLE_COLUMNS.clear();
+			if(TABLE_COLUMNS.stream().noneMatch(s -> rowSafe.containsKey(s.name))) TABLE_COLUMNS.clear();
 			
 			
-			rowSafe.forEach((k, v)->
+			rowSafe.forEach((k, v) ->
 				                TABLE_COLUMNS
 					                .stream()
-					                .filter(c->c.name.equals(k))
+					                .filter(c -> c.name.equals(k))
 					                .findAny()
-					                .orElseGet(()->{
-						                TableColumn c=new TableColumn(k);
+					                .orElseGet(() -> {
+						                TableColumn c = new TableColumn(k);
 						                TABLE_COLUMNS.add(c);
-						                TABLE_LAST_FLAG=false;
+						                TABLE_LAST_FLAG = false;
 						                return c;
 					                })
 					                .gibWidth(v.length()));
 			
-			StringBuilder sb=new StringBuilder();
+			StringBuilder sb = new StringBuilder();
 			if(!TABLE_LAST_FLAG){//first row
 				
-				String names=TABLE_COLUMNS.stream()
-				                          .map(TextUtil::toTableString)
-				                          .collect(Collectors.joining("|"));
+				String names = TABLE_COLUMNS.stream()
+				                            .map(TextUtil::toTableString)
+				                            .collect(Collectors.joining("|"));
 				
-				StringBuilder lines=new StringBuilder(names.length()+3);
+				StringBuilder lines = new StringBuilder(names.length() + 3);
 				lines.append('|');
-				for(int i=0;i<names.length();i++){
+				for(int i = 0; i<names.length(); i++){
 					lines.append('=');
 				}
 				lines.append("|\n");
@@ -873,11 +873,11 @@ public class LogUtil{
 			
 			sb.append('|');
 			for(TableColumn column : TABLE_COLUMNS){
-				int    left=column.width;
-				String val =rowSafe.get(column.name);
+				int    left = column.width;
+				String val  = rowSafe.get(column.name);
 				sb.append(' ');
-				if(val!=null){
-					left-=val.length();
+				if(val != null){
+					left -= val.length();
 					sb.append(val);
 				}
 				sb.append(' ');
@@ -886,7 +886,7 @@ public class LogUtil{
 			}
 			sb.append('\n');
 			
-			TABLE_FLAG=true;
+			TABLE_FLAG = true;
 			out(sb.toString());
 		}
 	}
@@ -905,9 +905,9 @@ public class LogUtil{
 		private final Getter<T> getter;
 		
 		public Val(String name, char identifier, Getter<T> getter){
-			this.name=name;
-			this.identifier=identifier;
-			this.getter=getter;
+			this.name = name;
+			this.identifier = identifier;
+			this.getter = getter;
 		}
 	}
 	
@@ -931,67 +931,67 @@ public class LogUtil{
 		
 		if(height<=0) throw new IllegalArgumentException("Height must be greater than 0");
 		if(width<=0){
-			if(width!=-1) throw new IllegalArgumentException("Width must be greater than 0 or -1 for auto width");
-			width=data.size();
+			if(width != -1) throw new IllegalArgumentException("Width must be greater than 0 or -1 for auto width");
+			width = data.size();
 		}
 		
 		//collect
-		double[][] collected=new double[data.size()][values.length];
+		double[][] collected = new double[data.size()][values.length];
 		{
-			int i=0;
+			int i = 0;
 			for(T datum : data){
-				double[] line=collected[i];
-				for(int y=0;y<line.length;y++){
-					line[y]=values[y].getter.get(datum);
+				double[] line = collected[i];
+				for(int y = 0; y<line.length; y++){
+					line[y] = values[y].getter.get(datum);
 				}
 				i++;
 			}
 		}
 		//normalize
-		double[] min=new double[values.length];
-		double[] max=new double[values.length];
+		double[] min = new double[values.length];
+		double[] max = new double[values.length];
 		Arrays.fill(min, Double.MAX_VALUE);
 		Arrays.fill(max, Double.MIN_VALUE);
 		
 		for(double[] line : collected){
-			for(int j=0;j<line.length;j++){
-				double val=line[j];
-				if(val<min[j]) min[j]=val;
-				if(val>max[j]) max[j]=val;
+			for(int j = 0; j<line.length; j++){
+				double val = line[j];
+				if(val<min[j]) min[j] = val;
+				if(val>max[j]) max[j] = val;
 			}
 		}
 		
 		if(!snapBottom){
-			for(int i=0;i<min.length;i++){
-				if(min[i]>0&&max[i]>0) min[i]=0;
+			for(int i = 0; i<min.length; i++){
+				if(min[i]>0 && max[i]>0) min[i] = 0;
 			}
 		}
 		
 		for(double[] line : collected){
-			for(int j=0;j<line.length;j++){
-				double unit=(line[j]-min[j])/(max[j]-min[j]);
-				line[j]=unit;
+			for(int j = 0; j<line.length; j++){
+				double unit = (line[j] - min[j])/(max[j] - min[j]);
+				line[j] = unit;
 			}
 		}
 		
 		//render
 		
-		BufferedImage img=new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		
-		Graphics2D g=img.createGraphics();
+		Graphics2D g = img.createGraphics();
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 		
-		for(int i=0;i<collected.length-1;i++){
-			double[] current=collected[i];
-			double[] next   =collected[i+1];
+		for(int i = 0; i<collected.length - 1; i++){
+			double[] current = collected[i];
+			double[] next    = collected[i + 1];
 			
-			for(int j=0;j<current.length;j++){
-				double yCurrent=(1-current[j])*height;
-				double xCurrent=i/(double)collected.length*width;
-				double yNext   =(1-next[j])*height;
-				double xNext   =(i+1)/(double)collected.length*width;
+			for(int j = 0; j<current.length; j++){
+				double yCurrent = (1 - current[j])*height;
+				double xCurrent = i/(double)collected.length*width;
+				double yNext    = (1 - next[j])*height;
+				double xNext    = (i + 1)/(double)collected.length*width;
 				
-				int id=j+1;
+				int id = j + 1;
 				g.setColor(new Color(id, id, id));
 				g.draw(new Line2D.Double(xCurrent, yCurrent, xNext, yNext));
 			}
@@ -999,25 +999,25 @@ public class LogUtil{
 		
 		g.dispose();
 		
-		StringBuilder sb=new StringBuilder(2+(width+2)*(height+1)+2);
+		StringBuilder sb = new StringBuilder(2 + (width + 2)*(height + 1) + 2);
 		
 		sb.append("A\n");
-		for(int y=0;y<height;y++){
+		for(int y = 0; y<height; y++){
 			sb.append('|');
-			for(int x=0;x<width;x++){
-				int id=img.getRGB(x, y)&0xFF;
-				sb.append(id==0?' ':values[id-1].identifier);
+			for(int x = 0; x<width; x++){
+				int id = img.getRGB(x, y)&0xFF;
+				sb.append(id == 0? ' ' : values[id - 1].identifier);
 			}
 			sb.append('\n');
 		}
-		for(int i=0;i<width+1;i++){
+		for(int i = 0; i<width + 1; i++){
 			sb.append('-');
 		}
 		sb.append(">\n");
 
 //		LogUtil.println(2+(width+2)*(height+1)+2, sb.toString().length());
 		out(sb.toString());
-		println(IntStream.range(0, values.length).mapToObj(i->values[i].name+" '"+values[i].identifier+"' - ("+min[i]+" - "+max[i]+")").collect(Collectors.joining(", ")));
+		println(IntStream.range(0, values.length).mapToObj(i -> values[i].name + " '" + values[i].identifier + "' - (" + min[i] + " - " + max[i] + ")").collect(Collectors.joining(", ")));
 		
 	}
 	

@@ -11,7 +11,7 @@ public class ChangeRegistryLong extends LongEventRegistry{
 	
 	public ChangeRegistryLong(long object, LongConsumer... listener){
 		this(listener);
-		this.object=object;
+		this.object = object;
 	}
 	
 	public ChangeRegistryLong(@NotNull LongConsumer... listener){
@@ -23,12 +23,12 @@ public class ChangeRegistryLong extends LongEventRegistry{
 	public ChangeRegistryLong(){ }
 	
 	public ChangeRegistryLong(long object){
-		this.object=object;
+		this.object = object;
 	}
 	
 	public void set(long object){
-		if(this.object==object) return;
-		this.object=object;
+		if(this.object == object) return;
+		this.object = object;
 		dispatch(object);
 	}
 	
@@ -39,6 +39,6 @@ public class ChangeRegistryLong extends LongEventRegistry{
 	@NotNull
 	@Override
 	public String toString(){
-		return getClass().getSimpleName()+"{val="+object+"}";
+		return getClass().getSimpleName() + "{val=" + object + "}";
 	}
 }

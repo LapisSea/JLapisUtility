@@ -32,7 +32,7 @@ public interface UnsafePredicate<T, E extends Throwable>{
 	 */
 	default UnsafePredicate<T, E> and(UnsafePredicate<? super T, E> other){
 		Objects.requireNonNull(other);
-		return (t)->test(t)&&other.test(t);
+		return (t) -> test(t) && other.test(t);
 	}
 	
 	/**
@@ -43,7 +43,7 @@ public interface UnsafePredicate<T, E extends Throwable>{
 	 * predicate
 	 */
 	default UnsafePredicate<T, E> negate(){
-		return (t)->!test(t);
+		return (t) -> !test(t);
 	}
 	
 	/**
@@ -64,6 +64,6 @@ public interface UnsafePredicate<T, E extends Throwable>{
 	 */
 	default UnsafePredicate<T, E> or(UnsafePredicate<? super T, E> other){
 		Objects.requireNonNull(other);
-		return (t)->test(t)||other.test(t);
+		return (t) -> test(t) || other.test(t);
 	}
 }

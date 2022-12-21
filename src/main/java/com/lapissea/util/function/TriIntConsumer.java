@@ -25,7 +25,7 @@ public interface TriIntConsumer{
 	default TriIntConsumer andThen(@NotNull TriIntConsumer after){
 		Objects.requireNonNull(after);
 		
-		return (a, b, c)->{
+		return (a, b, c) -> {
 			accept(a, b, c);
 			after.accept(a, b, c);
 		};

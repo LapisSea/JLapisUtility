@@ -11,7 +11,7 @@ public class ChangeRegistryInt extends IntEventRegistry{
 	
 	public ChangeRegistryInt(int object, IntConsumer... listener){
 		this(listener);
-		this.object=object;
+		this.object = object;
 	}
 	
 	public ChangeRegistryInt(@NotNull IntConsumer... listener){
@@ -23,12 +23,12 @@ public class ChangeRegistryInt extends IntEventRegistry{
 	public ChangeRegistryInt(){ }
 	
 	public ChangeRegistryInt(int object){
-		this.object=object;
+		this.object = object;
 	}
 	
 	public void set(int object){
-		if(this.object==object) return;
-		this.object=object;
+		if(this.object == object) return;
+		this.object = object;
 		dispatch(object);
 	}
 	
@@ -39,6 +39,6 @@ public class ChangeRegistryInt extends IntEventRegistry{
 	@NotNull
 	@Override
 	public String toString(){
-		return getClass().getSimpleName()+"{val="+object+"}";
+		return getClass().getSimpleName() + "{val=" + object + "}";
 	}
 }

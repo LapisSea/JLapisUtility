@@ -5,10 +5,10 @@ import java.util.Objects;
 public class IntHolder{
 	public int num;
 	
-	public IntHolder(){}
+	public IntHolder(){ }
 	
 	public IntHolder(int num){
-		this.num=num;
+		this.num = num;
 	}
 	
 	public int getNum(){
@@ -16,7 +16,7 @@ public class IntHolder{
 	}
 	
 	public void setNum(int num){
-		this.num=num;
+		this.num = num;
 	}
 	
 	@Override
@@ -25,9 +25,9 @@ public class IntHolder{
 	}
 	@Override
 	public boolean equals(Object o){
-		if(this==o) return true;
+		if(this == o) return true;
 		if(!(o instanceof IntHolder)) return false;
-		IntHolder that=(IntHolder)o;
+		IntHolder that = (IntHolder)o;
 		return Objects.equals(getNum(), that.getNum());
 	}
 	@Override

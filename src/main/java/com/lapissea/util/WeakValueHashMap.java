@@ -11,7 +11,7 @@ public class WeakValueHashMap<K, V> extends DeletingValueHashMap<K, V, WeakValue
 		
 		private WeakEntry(K key, T value, ReferenceQueue<T> queue){
 			super(value, queue);
-			this.key=key;
+			this.key = key;
 		}
 		
 		@Override
@@ -20,7 +20,7 @@ public class WeakValueHashMap<K, V> extends DeletingValueHashMap<K, V, WeakValue
 		}
 	}
 	
-	public WeakValueHashMap(){}
+	public WeakValueHashMap(){ }
 	
 	public WeakValueHashMap(Map<? extends K, ? extends V> m){
 		super(m);
