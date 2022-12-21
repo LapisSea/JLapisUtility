@@ -14,8 +14,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.IntConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -59,6 +59,7 @@ public class LogUtil{
 		public static final int USE_CALL_THREAD        = 1<<2;
 		public static final int DISABLED               = 1<<3;
 		public static final int USE_TABULATED_HEADER   = 1<<4;
+		public static final int USE_TIME_DELTA         = 1<<5;
 		
 		public static PrintStream OUT = System.out;
 		public static PrintStream ERR = System.err;
@@ -107,10 +108,10 @@ public class LogUtil{
 				}
 			}
 			
-			Function<StackTraceElement, String> header = getHeader(flags);
+			BiFunction<Boolean, StackTraceElement, String> header = getHeader(flags);
 			
-			System.setOut(new P(new DebugHeaderStream(System.out, header)));
-			System.setErr(new P(new DebugHeaderStream(System.err, header)));
+			System.setOut(new P(new DebugHeaderStream(System.out, false, header)));
+			System.setErr(new P(new DebugHeaderStream(System.err, true, header)));
 			
 		}
 		
@@ -137,77 +138,82 @@ public class LogUtil{
 			return className;
 		}
 		
-		private static Function<StackTraceElement, String> getHeader(int flags){
+		private static BiFunction<Boolean, StackTraceElement, String> getHeader(int flags){
 			
 			boolean tabulated = checkFlag(flags, USE_TABULATED_HEADER);
 			
+			TabPart part = null;
+			
 			if(checkFlag(flags, USE_CALL_THREAD)){
-				Tabulator threadTab = new Tabulator(tabulated);
-				
-				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
-					
-					Tabulator stackTab = new Tabulator(tabulated);
-					threadTab.onGrow = stackTab::reduce;
-					
-					return stack -> {
-						String threadSt = "[" + Thread.currentThread().getName() + "] ";
-						String stackSt  = "[" + stack.toString() + "]";
-						
-						return threadSt + threadTab.getTab(threadSt.length()) +
-						       stackSt + stackTab.getTab(stackSt.length()) + ": ";
-					};
-				}
-				
-				if(checkFlag(flags, USE_CALL_POS)){
-					
-					Tabulator stackTab = new Tabulator(tabulated);
-					threadTab.onGrow = stackTab::reduce;
-					
-					return stack -> {
-						String methodName = stack.getMethodName();
-						if(methodName.startsWith("lambda$")) methodName = methodName.substring(7);
-						String className = filterClassName(stack.getClassName());
-						String threadSt  = "[" + Thread.currentThread().getName() + "] ";
-						String stackSt   = "[" + className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1) + '.' + methodName + ':' + stack.getLineNumber() + "]";
-						
-						return threadSt + threadTab.getTab(threadSt.length()) + stackSt + stackTab.getTab(stackSt.length()) + ": ";
-					};
-				}
-				
-				return stack -> {
-					String threadSt = "[" + Thread.currentThread().getName() + "]";
-					
-					return threadSt + threadTab.getTab(threadSt.length()) + ": ";
-				};
-			}else{
-				
-				if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
-					
-					Tabulator stackTab = new Tabulator(tabulated);
-					
-					return stack -> {
-						String stackSt = "[" + stack.toString() + "]";
-						return stackSt + stackTab.getTab(stackSt.length()) + ": ";
-					};
-				}
-				
-				if(checkFlag(flags, USE_CALL_POS)){
-					
-					Tabulator stackTab = new Tabulator(tabulated);
-					
-					return stack -> {
-						String methodName = stack.getMethodName();
-						if(methodName.startsWith("lambda$")) methodName = methodName.substring(7);
-						String className = filterClassName(stack.getClassName());
-						
-						String stackSt = "[" + className.substring(Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1) + '.' + methodName + ':' + stack.getLineNumber() + "]";
-						
-						return stackSt + stackTab.getTab(stackSt.length()) + ": ";
-					};
-				}
-				
-				return stack -> "";
+				part = new TabPart(s -> "[" + Thread.currentThread().getName() + "]", null, tabulated);
 			}
+			
+			if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
+				part = new TabPart(s -> "[" + s.toString() + "]", part, tabulated);
+			}else if(checkFlag(flags, USE_CALL_POS)){
+				part = new TabPart(stack -> {
+					String methodName = stack.getMethodName();
+					if(methodName.startsWith("lambda$")) methodName = methodName.substring(7);
+					
+					String className = filterClassName(stack.getClassName());
+					
+					int clip = Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1;
+					className = className.substring(clip);
+					
+					return "[" + className + '.' + methodName + ':' + stack.getLineNumber() + "]";
+				}, part, tabulated);
+			}
+			
+			if(checkFlag(flags, USE_TIME_DELTA)){
+				part = new TabPart(new Function<StackTraceElement, String>(){
+					long last = -1;
+					
+					@Override
+					public String apply(StackTraceElement s){
+						long t = System.nanoTime();
+						if(last == -1){
+							last = t;
+							return "[--]";
+						}
+						long delta = t - last;
+						last = t;
+						
+						if(delta<UtilL.NS){
+							int smol = (int)Math.round((delta/(double)UtilL.NS)*10);
+							if(smol == 0) return "[--]";
+							String p = String.valueOf(smol/10F).substring(1);
+							return "[" + p + "ms]";
+						}
+						
+						double deltaUnit = delta/(double)UtilL.NS;
+						String unit      = "ms";
+						reduce:
+						{
+							if(deltaUnit>1000){
+								deltaUnit /= 1000;
+								unit = "s";
+							}else break reduce;
+							if(deltaUnit>60){
+								deltaUnit /= 60;
+								unit = "min";
+							}else break reduce;
+							if(deltaUnit>60){
+								deltaUnit /= 60;
+								unit = "hours";
+							}else break reduce;
+							if(deltaUnit>24){
+								deltaUnit /= 24;
+								unit = "days";
+							}else break reduce;
+						}
+						return "[" + Math.round(deltaUnit*10)/10 + unit + "]";
+					}
+				}, part, tabulated);
+			}
+			
+			if(part == null) return (b, s) -> "";
+			TabPart finalPart = part;
+			return (b, s) -> finalPart.output(b, 1, s);
 		}
 		
 		@Deprecated
@@ -225,35 +231,32 @@ public class LogUtil{
 		}
 		
 		@SuppressWarnings({"AutoBoxing", "AutoUnboxing"})
-		private static final class Tabulator{
+		private static final class TabPart{
 			
-			private final List<PairM<Integer, Long>> sizeTimeTable = new ArrayList<>();
+			private       Map<Integer, Long>                  sizeTimeTable = new HashMap<>();
+			private final Function<StackTraceElement, String> toStr;
+			private final boolean                             tabulated;
+			private final TabPart                             next;
 			
-			public IntConsumer onGrow = i -> { };
-			boolean tabulated;
-			
-			public Tabulator(boolean tabulated){
+			public TabPart(Function<StackTraceElement, String> toStr, TabPart next, boolean tabulated){
+				this.toStr = toStr;
+				this.next = next;
 				this.tabulated = tabulated;
 			}
 			
-			public synchronized String getTab(int size){
+			public String getTab(int size){
 				if(!tabulated) return "";
 				
-				long tim = System.currentTimeMillis();
+				long tim = System.nanoTime();
 				
-				int max = 0;
+				sizeTimeTable.entrySet().removeIf(e -> e.getValue() + 500*1000_000<tim);
 				
-				Iterator<PairM<Integer, Long>> i = sizeTimeTable.iterator();
-				while(i.hasNext()){
-					PairM<Integer, Long> p = i.next();
-					if(p.obj2 + 1000<tim) i.remove();
-					else max = Math.max(max, p.obj1);
-				}
-				if(size>max){
-					onGrow.accept(size - max);
+				int max = sizeTimeTable.keySet().stream().mapToInt(i -> i).max().orElse(0);
+				if(size>max && next != null){
+					next.reduce(size - max);
 				}
 				
-				sizeTimeTable.add(new PairM<>(size, tim));
+				sizeTimeTable.put(size, tim);
 				
 				int tabSize   = Math.max(0, max - size);
 				int totalSize = tabSize + size;
@@ -264,17 +267,30 @@ public class LogUtil{
 			
 			public void reduce(int amount){
 				if(!tabulated) return;
-				String                         s = sizeTimeTable.toString();
-				Iterator<PairM<Integer, Long>> i = sizeTimeTable.iterator();
-				while(i.hasNext()){
-					PairM<Integer, Long> p = i.next();
-					p.obj1 -= amount;
-					if(p.obj1<0){
-						i.remove();
-					}
+				int max = sizeTimeTable.keySet().stream().mapToInt(i -> i).max().orElse(0);
+				sizeTimeTable =
+					sizeTimeTable.entrySet()
+					             .stream()
+					             .filter(e -> e.getKey()>=amount)
+					             .collect(Collectors.toMap(e -> e.getKey() - amount, Map.Entry::getValue));
+				
+				if(amount>max && next != null){
+					next.reduce(amount - max);
 				}
 			}
 			
+			public String output(boolean color, int i, StackTraceElement stackTraceElement){
+				String str = toStr.apply(stackTraceElement);
+				String tab = getTab(str.length());
+				
+				String col;
+				if(color){
+					if(i%2 == 0) col = ConsoleColors.BLACK_BRIGHT;
+					else col = ConsoleColors.RESET;
+				}else col = "";
+				
+				return col + str + tab + (next == null? ": " + ConsoleColors.RESET : next.output(color, i + 1, stackTraceElement));
+			}
 		}
 		
 		private static final class DebugHeaderStream extends OutputStream{
@@ -288,32 +304,64 @@ public class LogUtil{
 			private final OutputStream child;
 			private       LineBuild    lineBuild   = new LineBuild();
 			private       boolean      needsHeader = true;
+			private final boolean      err;
 			
-			private final Function<StackTraceElement, String> header;
+			private final BiFunction<Boolean, StackTraceElement, String> header;
 			
 			private final StringBuilder sb = new StringBuilder();
 			
-			public DebugHeaderStream(OutputStream child, Function<StackTraceElement, String> header){
+			public DebugHeaderStream(OutputStream child, boolean err, BiFunction<Boolean, StackTraceElement, String> header){
+				this.err = err;
 				this.header = header;
 				this.child = child;
 			}
 			
 			@Override
 			public synchronized void flush() throws IOException{
+				StringBuilder startCol = null;
+				startColor:
+				if(!err){
+					Reader reader = reader();
+					int    c;
+					while((c = reader.read()) != -1){
+						if(Character.isWhitespace((char)c)) continue;
+						if(c == '\033'){
+							if(reader.read() != '[') break startColor;
+							StringBuilder col = new StringBuilder("\033[");
+							while(true){
+								int c1 = reader.read();
+								col.append((char)c1);
+								if(c1 != ';' && !(c1>='0' && c1<='9')){
+									if(c1 == 'm'){
+										startCol = col;
+									}
+									break startColor;
+								}
+							}
+						}else break startColor;
+					}
+				}
 				sb.setLength(0);
-				sb.append(header());
+				if(startCol != null) sb.append(startCol);
+				String h = header(!err && startCol == null);
+				sb.append(h);
 				
-				Reader reader = new InputStreamReader(new ByteBufferBackedInputStream(ByteBuffer.wrap(lineBuild.buf(), 0, lineBuild.size())));
-				
+				Reader reader = reader();
 				while(true){
 					int bi = reader.read();
 					if(bi == -1) break;
 					char b = (char)bi;
 					
-					sb.append(header());
-					
-					if(b == '\n') needsHeader = true;
+					if(needsHeader){
+						needsHeader = false;
+						for(int i = 0; i<h.length(); i++){
+							sb.append(' ');
+						}
+					}
 					sb.append(b);
+					if(b == '\n'){
+						needsHeader = true;
+					}
 				}
 				
 				if(lineBuild.buf().length>lineBuild.size()*2) lineBuild = new LineBuild();
@@ -330,12 +378,16 @@ public class LogUtil{
 				}
 			}
 			
-			private String header(){
+			private Reader reader(){
+				return new InputStreamReader(new ByteBufferBackedInputStream(ByteBuffer.wrap(lineBuild.buf(), 0, lineBuild.size())));
+			}
+			
+			private String header(boolean color){
 				if(!needsHeader) return "";
 				needsHeader = false;
 				
 				try{
-					return debugHeader();
+					return debugHeader(color);
 				}catch(Exception e){
 					detach();
 					e.printStackTrace();
@@ -356,14 +408,14 @@ public class LogUtil{
 				}
 			}
 			
-			private String debugHeader(){
+			private String debugHeader(boolean color){
 				StackTraceElement stack = getCallStack();
 				boolean           shouldPrint;
 				shouldPrint = !stack.getClassName().equals(Throwable.class.getName() + "$WrappedPrintStream");
 				if(shouldPrint) shouldPrint = !stack.getClassName().equals(ThreadGroup.class.getName());
 				
 				if(shouldPrint){
-					return header.apply(stack);
+					return header.apply(color, stack);
 				}
 				return "";
 			}
