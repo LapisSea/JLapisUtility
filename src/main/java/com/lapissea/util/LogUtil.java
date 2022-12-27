@@ -61,19 +61,47 @@ public class LogUtil{
 		public static final int USE_TABULATED_HEADER   = 1<<4;
 		public static final int USE_TIME_DELTA         = 1<<5;
 		
-		public static PrintStream OUT = System.out;
-		public static PrintStream ERR = System.err;
+		public static PrintStream OUT;
+		public static PrintStream ERR;
+		
+		private static final boolean absoluteSingleton;
 		
 		static{
-			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-				synchronized(System.out){
-					synchronized(System.err){
-						detach();
-						System.out.flush();
-						System.err.flush();
-					}
+			try{
+				Class<?> absoluteInit = ClassLoader.getSystemClassLoader().loadClass(Init.class.getName());
+				absoluteSingleton = (absoluteInit == Init.class);
+				if(absoluteSingleton){
+					OUT = System.out;
+					ERR = System.err;
+				}else{
+					OUT = (PrintStream)absoluteInit.getField("OUT").get(null);
+					ERR = (PrintStream)absoluteInit.getField("ERR").get(null);
 				}
-			}, LogUtil.class.getSimpleName() + "-Flush"));
+			}catch(ReflectiveOperationException e){
+				e.printStackTrace();
+				throw new RuntimeException(e);
+			}
+			if(absoluteSingleton){
+				Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+					synchronized(System.out){
+						synchronized(System.err){
+							detach();
+							System.out.flush();
+							System.err.flush();
+						}
+					}
+				}, LogUtil.class.getSimpleName() + "-Flush"));
+			}
+		}
+		
+		private static final class HeadResult{
+			private final String string;
+			private final int    length;
+			
+			private HeadResult(String string, int length){
+				this.string = string;
+				this.length = length;
+			}
 		}
 		
 		/**
@@ -83,6 +111,7 @@ public class LogUtil{
 		 * @see #DISABLED
 		 */
 		public static void attach(int flags){
+			if(!absoluteSingleton) return;
 			if(attached){
 				detach();
 			}
@@ -108,7 +137,7 @@ public class LogUtil{
 				}
 			}
 			
-			BiFunction<Boolean, StackTraceElement, String> header = getHeader(flags);
+			BiFunction<Boolean, StackTraceElement, HeadResult> header = getHeader(flags);
 			
 			System.setOut(new P(new DebugHeaderStream(System.out, false, header)));
 			System.setErr(new P(new DebugHeaderStream(System.err, true, header)));
@@ -138,18 +167,18 @@ public class LogUtil{
 			return className;
 		}
 		
-		private static BiFunction<Boolean, StackTraceElement, String> getHeader(int flags){
+		private static BiFunction<Boolean, StackTraceElement, HeadResult> getHeader(int flags){
 			
 			boolean tabulated = checkFlag(flags, USE_TABULATED_HEADER);
 			
 			TabPart part = null;
 			
 			if(checkFlag(flags, USE_CALL_THREAD)){
-				part = new TabPart(s -> "[" + Thread.currentThread().getName() + "]", null, tabulated);
+				part = new TabPart(s -> Thread.currentThread().getName(), null, tabulated, false);
 			}
 			
 			if(checkFlag(flags, USE_CALL_POS_CLICKABLE)){
-				part = new TabPart(s -> "[" + s.toString() + "]", part, tabulated);
+				part = new TabPart(StackTraceElement::toString, part, tabulated, false);
 			}else if(checkFlag(flags, USE_CALL_POS)){
 				part = new TabPart(stack -> {
 					String methodName = stack.getMethodName();
@@ -160,8 +189,8 @@ public class LogUtil{
 					int clip = Math.max(className.lastIndexOf('.'), className.lastIndexOf('$')) + 1;
 					className = className.substring(clip);
 					
-					return "[" + className + '.' + methodName + ':' + stack.getLineNumber() + "]";
-				}, part, tabulated);
+					return className + '.' + methodName + ':' + stack.getLineNumber();
+				}, part, tabulated, false);
 			}
 			
 			if(checkFlag(flags, USE_TIME_DELTA)){
@@ -173,16 +202,16 @@ public class LogUtil{
 						long t = System.nanoTime();
 						if(last == -1){
 							last = t;
-							return "[--]";
+							return "--";
 						}
 						long delta = t - last;
 						last = t;
 						
 						if(delta<UtilL.NS){
 							int smol = (int)Math.round((delta/(double)UtilL.NS)*10);
-							if(smol == 0) return "[--]";
+							if(smol == 0) return "--";
 							String p = String.valueOf(smol/10F).substring(1);
-							return "[" + p + "ms]";
+							return p + "ms";
 						}
 						
 						double deltaUnit = delta/(double)UtilL.NS;
@@ -206,14 +235,18 @@ public class LogUtil{
 								unit = "days";
 							}else break reduce;
 						}
-						return "[" + Math.round(deltaUnit*10)/10 + unit + "]";
+						return Math.round(deltaUnit*10)/10 + unit;
 					}
-				}, part, tabulated);
+				}, part, tabulated, true);
 			}
 			
-			if(part == null) return (b, s) -> "";
+			if(part == null) return (b, s) -> new HeadResult("", 0);
 			TabPart finalPart = part;
-			return (b, s) -> finalPart.output(b, 1, s);
+			return (b, s) -> {
+				synchronized(finalPart){
+					return finalPart.output(b, 1, s);
+				}
+			};
 		}
 		
 		@Deprecated
@@ -226,22 +259,22 @@ public class LogUtil{
 			if(OUT == null) return;
 			System.setOut(OUT);
 			System.setErr(ERR);
-			OUT = null;
-			ERR = null;
 		}
 		
 		@SuppressWarnings({"AutoBoxing", "AutoUnboxing"})
-		private static final class TabPart{
+		private static class TabPart{
 			
 			private       Map<Integer, Long>                  sizeTimeTable = new HashMap<>();
 			private final Function<StackTraceElement, String> toStr;
-			private final boolean                             tabulated;
 			private final TabPart                             next;
+			private final boolean                             tabulated;
+			private final boolean                             aligned;
 			
-			public TabPart(Function<StackTraceElement, String> toStr, TabPart next, boolean tabulated){
+			public TabPart(Function<StackTraceElement, String> toStr, TabPart next, boolean tabulated, boolean aligned){
 				this.toStr = toStr;
 				this.next = next;
 				this.tabulated = tabulated;
+				this.aligned = aligned;
 			}
 			
 			public String getTab(int size){
@@ -279,7 +312,7 @@ public class LogUtil{
 				}
 			}
 			
-			public String output(boolean color, int i, StackTraceElement stackTraceElement){
+			public HeadResult output(boolean color, int i, StackTraceElement stackTraceElement){
 				String str = toStr.apply(stackTraceElement);
 				String tab = getTab(str.length());
 				
@@ -289,7 +322,18 @@ public class LogUtil{
 					else col = ConsoleColors.RESET;
 				}else col = "";
 				
-				return col + str + tab + (next == null? ": " + ConsoleColors.RESET : next.output(color, i + 1, stackTraceElement));
+				String res;
+				if(aligned){
+					res = "[" + tab + str + "]";
+				}else{
+					res = "[" + str + "]" + tab;
+				}
+				
+				HeadResult nextResult;
+				if(next != null) nextResult = next.output(color, i + 1, stackTraceElement);
+				else nextResult = new HeadResult(": " + ConsoleColors.RESET, 2);
+				
+				return new HeadResult(col + res + nextResult.string, res.length() + nextResult.length);
 			}
 		}
 		
@@ -306,11 +350,11 @@ public class LogUtil{
 			private       boolean      needsHeader = true;
 			private final boolean      err;
 			
-			private final BiFunction<Boolean, StackTraceElement, String> header;
+			private final BiFunction<Boolean, StackTraceElement, HeadResult> header;
 			
 			private final StringBuilder sb = new StringBuilder();
 			
-			public DebugHeaderStream(OutputStream child, boolean err, BiFunction<Boolean, StackTraceElement, String> header){
+			public DebugHeaderStream(OutputStream child, boolean err, BiFunction<Boolean, StackTraceElement, HeadResult> header){
 				this.err = err;
 				this.header = header;
 				this.child = child;
@@ -343,8 +387,8 @@ public class LogUtil{
 				}
 				sb.setLength(0);
 				if(startCol != null) sb.append(startCol);
-				String h = header(!err && startCol == null);
-				sb.append(h);
+				HeadResult h = header(!err && startCol == null);
+				sb.append(h.string);
 				
 				Reader reader = reader();
 				while(true){
@@ -354,7 +398,7 @@ public class LogUtil{
 					
 					if(needsHeader){
 						needsHeader = false;
-						for(int i = 0; i<h.length(); i++){
+						for(int i = 0; i<h.length; i++){
 							sb.append(' ');
 						}
 					}
@@ -382,8 +426,8 @@ public class LogUtil{
 				return new InputStreamReader(new ByteBufferBackedInputStream(ByteBuffer.wrap(lineBuild.buf(), 0, lineBuild.size())));
 			}
 			
-			private String header(boolean color){
-				if(!needsHeader) return "";
+			private HeadResult header(boolean color){
+				if(!needsHeader) return new HeadResult("", 0);
 				needsHeader = false;
 				
 				try{
@@ -408,7 +452,7 @@ public class LogUtil{
 				}
 			}
 			
-			private String debugHeader(boolean color){
+			private HeadResult debugHeader(boolean color){
 				StackTraceElement stack = getCallStack();
 				boolean           shouldPrint;
 				shouldPrint = !stack.getClassName().equals(Throwable.class.getName() + "$WrappedPrintStream");
@@ -417,7 +461,7 @@ public class LogUtil{
 				if(shouldPrint){
 					return header.apply(color, stack);
 				}
-				return "";
+				return new HeadResult("", 0);
 			}
 			
 			private StackTraceElement getCallStack(){

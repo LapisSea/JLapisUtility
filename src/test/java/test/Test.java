@@ -8,6 +8,12 @@ public class Test{
 	
 	public static void main(String[] args){
 		LogUtil.Init.attach(LogUtil.Init.USE_TIME_DELTA|LogUtil.Init.USE_TABULATED_HEADER|LogUtil.Init.USE_CALL_THREAD);
+		
+		LogUtil.println("Long\n" +
+		                " multiline\n" +
+		                "    with white\n" +
+		                "space");
+		
 		LogUtil.println("hi. wierd letters: ˘°€|~^˘°˛`˙´đđšćž¨|\uD83D\uDE0A");
 		LogUtil.println("wooo");
 		LogUtil.println("hi "+ConsoleColors.BLUE+"wooo"+ConsoleColors.RESET);
